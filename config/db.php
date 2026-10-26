@@ -11,4 +11,7 @@ if (file_exists(__DIR__ . '/../.env')) {
     $dotenv->load();
 }
 
+// آدرس پایه سایت (url / absolute_url) — باید بعد از لود شدن .env بیاد چون APP_URL رو از اونجا می‌خونه
+require_once __DIR__ . '/app.php';
+
 $conn = Database::getConnection();

@@ -31,18 +31,18 @@
             <h4>دسته‌بندی‌ها</h4>
             <ul>
                 <?php foreach ($nav_categories as $fc): ?>
-                    <li><a href="/danshjoyar/index.php?category=<?php echo $fc['id']; ?>"><?php echo clean_input($fc['name']); ?></a></li>
+                    <li><a href="<?php echo url('index.php?category=' . $fc['id']); ?>"><?php echo clean_input($fc['name']); ?></a></li>
                 <?php endforeach; ?>
             </ul>
         </div>
         <div class="footer-col">
             <h4>دسترسی سریع</h4>
             <ul>
-                <li><a href="/danshjoyar/index.php">صفحه اصلی</a></li>
-                <li><a href="/danshjoyar/search.php">جستجو</a></li>
-                <li><a href="/danshjoyar/wishlist.php">علاقه‌مندی‌ها</a></li>
-                <li><a href="/danshjoyar/cart.php">سبد خرید</a></li>
-                <li><a href="/danshjoyar/contact.php">تماس با ما</a></li>
+                <li><a href="<?php echo url('index.php'); ?>">صفحه اصلی</a></li>
+                <li><a href="<?php echo url('search.php'); ?>">جستجو</a></li>
+                <li><a href="<?php echo url('wishlist.php'); ?>">علاقه‌مندی‌ها</a></li>
+                <li><a href="<?php echo url('cart.php'); ?>">سبد خرید</a></li>
+                <li><a href="<?php echo url('contact.php'); ?>">تماس با ما</a></li>
             </ul>
         </div>
         <div class="footer-col">
@@ -56,7 +56,7 @@
     </div>
     <div class="footer-bottom">
         <div class="container">
-            <p>گل‌آرا — پروژه آموزشی فروشگاه لوازم آرایشی &copy; <?php echo date('Y'); ?> · <a href="/danshjoyar/admin/login.php" style="color:inherit; opacity:.6;">ورود مدیر</a></p>
+            <p>گل‌آرا — پروژه آموزشی فروشگاه لوازم آرایشی &copy; <?php echo date('Y'); ?> · <a href="<?php echo url('admin/login.php'); ?>" style="color:inherit; opacity:.6;">ورود مدیر</a></p>
         </div>
     </div>
 </footer>
@@ -78,7 +78,7 @@ document.addEventListener('click', function (event) {
     const productId = btn.dataset.productId;
     btn.disabled = true;
 
-    fetch('/danshjoyar/ajax/toggle_wishlist.php', {
+    fetch('<?php echo url('ajax/toggle_wishlist.php'); ?>', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'product_id=' + productId + '&csrf_token=' + encodeURIComponent(getCsrfToken())
@@ -154,7 +154,7 @@ document.addEventListener('click', function (event) {
     }
 
     resetBtn.addEventListener('click', function () {
-        fetch('/danshjoyar/ajax/ai_chat.php', {
+        fetch('<?php echo url('ajax/ai_chat.php'); ?>', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'reset=1&csrf_token=' + encodeURIComponent(getCsrfToken())
@@ -179,7 +179,7 @@ document.addEventListener('click', function (event) {
         const loadingMsg = addMessage('در حال تایپ...', 'bot');
         loadingMsg.classList.add('ai-msg-loading');
 
-        fetch('/danshjoyar/ajax/ai_chat.php', {
+        fetch('<?php echo url('ajax/ai_chat.php'); ?>', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'message=' + encodeURIComponent(message) + '&csrf_token=' + encodeURIComponent(getCsrfToken())

@@ -18,7 +18,7 @@ $nav_categories = isset($conn) ? (new Category())->all('id ASC') : [];
     <title>گل‌آرا | فروشگاه لوازم آرایشی اورجینال</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/danshjoyar/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo url('assets/css/style.css'); ?>">
 </head>
 <body>
 
@@ -27,16 +27,16 @@ $nav_categories = isset($conn) ? (new Category())->all('id ASC') : [];
         <span class="top-bar-text">پشتیبانی: ۰۹۹۰۹۵۹۲۵۱۴</span>
         <span class="top-bar-promo">ارسال رایگان برای خرید بالای ۲,۰۰۰,۰۰۰ تومان</span>
         <div class="top-bar-icons">
-            <a href="/danshjoyar/search.php" class="icon-link" title="جستجو"><?php echo icon('search'); ?></a>
+            <a href="<?php echo url('search.php'); ?>" class="icon-link" title="جستجو"><?php echo icon('search'); ?></a>
             <?php if (!empty($_SESSION['customer_id'])): ?>
-                <a href="/danshjoyar/account.php" class="icon-link" title="حساب کاربری من (<?php echo clean_input($_SESSION['customer_name']); ?>)"><?php echo icon('user'); ?></a>
+                <a href="<?php echo url('account.php'); ?>" class="icon-link" title="حساب کاربری من (<?php echo clean_input($_SESSION['customer_name']); ?>)"><?php echo icon('user'); ?></a>
             <?php else: ?>
-                <a href="/danshjoyar/login.php" class="icon-link" title="ورود / ثبت‌نام"><?php echo icon('user'); ?></a>
+                <a href="<?php echo url('login.php'); ?>" class="icon-link" title="ورود / ثبت‌نام"><?php echo icon('user'); ?></a>
             <?php endif; ?>
-            <a href="/danshjoyar/wishlist.php" class="icon-link" title="علاقه‌مندی‌ها">
+            <a href="<?php echo url('wishlist.php'); ?>" class="icon-link" title="علاقه‌مندی‌ها">
                 <?php echo icon('heart'); ?> <span class="icon-badge" id="wishlistBadge"><?php echo $wishlist_count; ?></span>
             </a>
-            <a href="/danshjoyar/cart.php" class="icon-link" title="سبد خرید">
+            <a href="<?php echo url('cart.php'); ?>" class="icon-link" title="سبد خرید">
                 <?php echo icon('shopping-bag'); ?> <span class="icon-badge" id="cartBadge"><?php echo $cart_count; ?></span>
             </a>
         </div>
@@ -48,7 +48,7 @@ $nav_categories = isset($conn) ? (new Category())->all('id ASC') : [];
 <header class="site-header">
     <div class="container logo-row">
         <label for="navToggle" class="mobile-toggle" aria-label="منو"><?php echo icon('menu'); ?></label>
-        <a href="/danshjoyar/index.php" class="logo">
+        <a href="<?php echo url('index.php'); ?>" class="logo">
             <span class="logo-text">گل‌آرا</span>
             <span class="logo-tagline">لوازم آرایشی · مراقبت پوست · عطر</span>
         </a>
@@ -58,18 +58,18 @@ $nav_categories = isset($conn) ? (new Category())->all('id ASC') : [];
 
 <nav class="main-nav">
     <ul>
-        <li><a href="/danshjoyar/index.php">صفحه اصلی</a></li>
+        <li><a href="<?php echo url('index.php'); ?>">صفحه اصلی</a></li>
         <li class="has-dropdown">
-            <a href="/danshjoyar/index.php">دسته‌بندی محصولات <span class="caret"><?php echo icon('chevron-down'); ?></span></a>
+            <a href="<?php echo url('index.php'); ?>">دسته‌بندی محصولات <span class="caret"><?php echo icon('chevron-down'); ?></span></a>
             <ul class="dropdown">
                 <?php foreach ($nav_categories as $cat): ?>
-                    <li><a href="/danshjoyar/index.php?category=<?php echo $cat['id']; ?>"><?php echo clean_input($cat['name']); ?></a></li>
+                    <li><a href="<?php echo url('index.php?category=' . $cat['id']); ?>"><?php echo clean_input($cat['name']); ?></a></li>
                 <?php endforeach; ?>
             </ul>
         </li>
-        <li><a href="/danshjoyar/search.php">جستجو</a></li>
-        <li><a href="/danshjoyar/wishlist.php">علاقه‌مندی‌ها</a></li>
-        <li><a href="/danshjoyar/contact.php">تماس با ما</a></li>
+        <li><a href="<?php echo url('search.php'); ?>">جستجو</a></li>
+        <li><a href="<?php echo url('wishlist.php'); ?>">علاقه‌مندی‌ها</a></li>
+        <li><a href="<?php echo url('contact.php'); ?>">تماس با ما</a></li>
     </ul>
 </nav>
 

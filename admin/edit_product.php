@@ -103,7 +103,7 @@ while ($cat = mysqli_fetch_assoc($categories_result)) {
     <textarea id="description" name="description" rows="4"><?php echo $description; ?></textarea>
 
     <?php if ($product['image']): ?>
-        <img src="/danshjoyar/uploads/products/<?php echo $product['image']; ?>" style="width:120px; margin-top:10px; border-radius:6px;">
+        <img src="<?php echo url('uploads/products/' . $product['image']); ?>" style="width:120px; margin-top:10px; border-radius:6px;">
     <?php endif; ?>
 
     <label for="image">تصویر جدید (اختیاری)</label>

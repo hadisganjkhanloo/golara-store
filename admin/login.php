@@ -65,7 +65,7 @@ if ($require_captcha) {
 <head>
     <meta charset="UTF-8">
     <title>ورود به پنل مدیریت</title>
-    <link rel="stylesheet" href="/danshjoyar/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo url('assets/css/style.css'); ?>">
 </head>
 <body>
 <main class="container" style="padding-top:60px;">

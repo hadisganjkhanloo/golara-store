@@ -41,7 +41,7 @@ function require_admin_login()
 function require_customer_login()
 {
     if (empty($_SESSION['customer_id'])) {
-        redirect('/danshjoyar/login.php');
+        redirect(url('login.php'));
     }
 }
 
@@ -115,7 +115,7 @@ function search_products($conn, $query)
 function render_product_card($product)
 {
     $image_url = $product['image']
-        ? '/danshjoyar/uploads/products/' . $product['image']
+        ? url('uploads/products/' . $product['image'])
         : 'https://via.placeholder.com/220x150/fbe4ee/c2477a?text=Golara';
 
     $is_wishlisted = (new Wishlist())->has((int) $product['id']);
@@ -125,7 +125,7 @@ function render_product_card($product)
         <img src="<?php echo $image_url; ?>" alt="<?php echo clean_input($product['name']); ?>" loading="lazy">
         <h3><?php echo clean_input($product['name']); ?></h3>
         <p class="price"><?php echo format_price($product['price']); ?></p>
-        <a href="/danshjoyar/product.php?id=<?php echo $product['id']; ?>" class="btn">مشاهده</a>
+        <a href="<?php echo url('product.php?id=' . $product['id']); ?>" class="btn">مشاهده</a>
     </div>
     <?php
 }
@@ -184,7 +184,7 @@ function render_reviews_section($conn, $product_id)
         </div>
 
         <?php if (empty($_SESSION['customer_id'])): ?>
-            <p class="review-login-note">برای ثبت نظر، ابتدا <a href="/danshjoyar/login.php">وارد حساب کاربری</a> شو.</p>
+            <p class="review-login-note">برای ثبت نظر، ابتدا <a href="<?php echo url('login.php'); ?>">وارد حساب کاربری</a> شو.</p>
         <?php elseif ($already_reviewed): ?>
             <p class="review-login-note">شما قبلاً برای این محصول نظر ثبت کرده‌اید.</p>
         <?php else: ?>

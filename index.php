@@ -137,7 +137,7 @@ if (loadMoreBtn) {
         loadMoreBtn.disabled = true;
         loadMoreBtn.textContent = 'در حال بارگذاری...';
 
-        fetch('/danshjoyar/ajax/load_more_products.php?offset=' + offset)
+        fetch('<?php echo url('ajax/load_more_products.php'); ?>?offset=' + offset)
             .then(function (response) {
                 return response.text();
             })

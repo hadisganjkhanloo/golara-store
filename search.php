@@ -53,7 +53,7 @@ searchInput.addEventListener('input', function () {
     debounceTimer = setTimeout(function () {
         resultsBox.innerHTML = '<p>در حال جستجو...</p>';
 
-        fetch('/danshjoyar/ajax/live_search.php?q=' + encodeURIComponent(query))
+        fetch('<?php echo url('ajax/live_search.php'); ?>?q=' + encodeURIComponent(query))
             .then(function (response) {
                 return response.text();
             })

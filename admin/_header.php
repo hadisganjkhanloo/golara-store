@@ -9,7 +9,7 @@ require_admin_login();
 <head>
     <meta charset="UTF-8">
     <title>پنل مدیریت فروشگاه</title>
-    <link rel="stylesheet" href="/danshjoyar/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo url('assets/css/style.css'); ?>">
 </head>
 <body>
 <div class="admin-nav">
@@ -17,7 +17,7 @@ require_admin_login();
         <div>
             <a href="dashboard.php">محصولات</a>
             <a href="add_product.php">افزودن محصول</a>
-            <a href="/danshjoyar/index.php" target="_blank">مشاهده سایت</a>
+            <a href="<?php echo url('index.php'); ?>" target="_blank">مشاهده سایت</a>
         </div>
         <div>
             <span style="color:#94a3b8;">خوش آمدید، <?php echo clean_input($_SESSION['admin_username']); ?></span>

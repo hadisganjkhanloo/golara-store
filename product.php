@@ -16,7 +16,7 @@ if (!$product) {
 ?>
 
 <div style="display:flex; gap:30px; flex-wrap:wrap; background:#fff; padding:20px; border-radius:8px;">
-    <img src="<?php echo $product['image'] ? '/danshjoyar/uploads/products/' . $product['image'] : 'https://via.placeholder.com/300x220/fbe4ee/c2477a?text=گل‌آرا'; ?>" alt="<?php echo clean_input($product['name']); ?>" style="width:300px; height:220px; object-fit:cover; border-radius:8px;">
+    <img src="<?php echo $product['image'] ? url('uploads/products/' . $product['image']) : 'https://via.placeholder.com/300x220/fbe4ee/c2477a?text=گل‌آرا'; ?>" alt="<?php echo clean_input($product['name']); ?>" style="width:300px; height:220px; object-fit:cover; border-radius:8px;">
     <div>
         <h1><?php echo clean_input($product['name']); ?></h1>
         <p class="price" style="font-size:20px; margin:12px 0;"><?php echo format_price($product['price']); ?></p>
@@ -46,7 +46,7 @@ document.getElementById('addToCartBtn').addEventListener('click', function () {
     btn.disabled = true;
     btn.textContent = 'در حال افزودن...';
 
-    fetch('/danshjoyar/ajax/add_to_cart.php', {
+    fetch('<?php echo url('ajax/add_to_cart.php'); ?>', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'product_id=' + productId + '&csrf_token=' + encodeURIComponent(getCsrfToken())
@@ -110,7 +110,7 @@ if (reviewForm) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'در حال ارسال...';
 
-        fetch('/danshjoyar/ajax/submit_review.php', {
+        fetch('<?php echo url('ajax/submit_review.php'); ?>', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'product_id=' + encodeURIComponent(productId)

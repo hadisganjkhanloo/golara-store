@@ -1,0 +1,14 @@
+# وقتی ریشه پروژه خودش Document Root دامنه است (مثلا golara-store.test)،
+# فایل‌های حساس نباید از بیرون قابل دانلود باشن.
+
+Options -Indexes
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "^(\.env.*|\.gitignore|composer\.(json|lock|phar)|README\.md)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_alias.c>
+    RedirectMatch 403 "^/(.*/)?(vendor|database|classes|config|\.git)(/|$)"
+</IfModule>

@@ -7,4 +7,5 @@ define('ZARINPAL_MERCHANT_ID', $_ENV['ZARINPAL_MERCHANT_ID'] ?? '00000000-0000-0
 define('ZARINPAL_REQUEST_URL', 'https://sandbox.zarinpal.com/pg/v4/payment/request.json');
 define('ZARINPAL_VERIFY_URL', 'https://sandbox.zarinpal.com/pg/v4/payment/verify.json');
 define('ZARINPAL_STARTPAY_URL', 'https://sandbox.zarinpal.com/pg/StartPay/');
-define('ZARINPAL_CALLBACK_URL', 'http://localhost/danshjoyar/payment/callback.php');
+// درگاه باید کاربر رو به آدرس کامل (با دامنه) برگردونه، پس absolute_url
+define('ZARINPAL_CALLBACK_URL', absolute_url('payment/callback.php'));

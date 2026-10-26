@@ -61,13 +61,13 @@ require_once __DIR__ . '/../includes/header.php';
             <p style="margin-top:6px; font-size:14px;">کد پیگیری: <strong><?php echo clean_input($order['ref_id']); ?></strong></p>
         <?php endif; ?>
         <p style="margin-top:6px; font-size:14px;">مبلغ: <strong class="price"><?php echo format_price($order['total_amount']); ?></strong></p>
-        <a href="/danshjoyar/orders.php" class="btn" style="margin-top:18px;">مشاهده سفارش‌های من</a>
+        <a href="<?php echo url('orders.php'); ?>" class="btn" style="margin-top:18px;">مشاهده سفارش‌های من</a>
     </div>
 <?php else: ?>
     <div class="box" style="max-width:480px; text-align:center;">
         <h1 style="font-size:22px; color:#a13a5f;">پرداخت ناموفق</h1>
         <p style="margin-top:14px; font-size:14px;"><?php echo clean_input($message); ?></p>
-        <a href="/danshjoyar/cart.php" class="btn" style="margin-top:18px;">بازگشت به سبد خرید</a>
+        <a href="<?php echo url('cart.php'); ?>" class="btn" style="margin-top:18px;">بازگشت به سبد خرید</a>
     </div>
 <?php endif; ?>
 

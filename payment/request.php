@@ -14,14 +14,14 @@ require_customer_login();
 $cart = new Cart();
 
 if ($cart->isEmpty()) {
-    redirect('/danshjoyar/cart.php');
+    redirect(url('cart.php'));
 }
 
 $cartItems = $cart->getItemsWithProducts();
 $total = $cart->getTotal();
 
 if ($total <= 0) {
-    redirect('/danshjoyar/cart.php');
+    redirect(url('cart.php'));
 }
 
 // سفارش رو با وضعیت pending ثبت می‌کنیم؛ فقط بعد از تایید درگاه، paid می‌شه
@@ -45,7 +45,7 @@ if (!$result['success']) {
     <div class="box" style="max-width:480px;">
         <h1 style="font-size:20px; color:#a13a5f;">اتصال به درگاه برقرار نشد</h1>
         <p style="margin-top:10px; font-size:14px;">لطفاً چند لحظه دیگر دوباره تلاش کنید.</p>
-        <a href="/danshjoyar/cart.php" class="btn" style="margin-top:16px;">بازگشت به سبد خرید</a>
+        <a href="<?php echo url('cart.php'); ?>" class="btn" style="margin-top:16px;">بازگشت به سبد خرید</a>
     </div>
     <?php
     require_once __DIR__ . '/../includes/footer.php';

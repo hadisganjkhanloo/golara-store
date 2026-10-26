@@ -11,7 +11,12 @@
 ## نصب (قدم‌به‌قدم)
 
 ### ۱. کپی پروژه
-فایل‌ها رو تو پوشه `htdocs` اکسمپ کپی کن (مثلاً `C:\xampp\htdocs\danshjoyar`).
+فایل‌ها رو هرجا که می‌خوای قرار بده؛ اسم پوشه مهم نیست و هیچ آدرسی تو کد ثابت نشده. دو حالت رایجه:
+
+- **زیرپوشه** تو `htdocs` اکسمپ (مثلاً `C:\xampp\htdocs\golara`) و باز کردن با `http://localhost/golara/`
+- **دامنه اختصاصی** (Virtual Host / Laragon، مثلاً `http://golara-store.test`) با Document Root روی **همین پوشه پروژه**
+
+آدرس پایه سایت (`config/app.php`) خودکار از روی دامنه و مسیر تشخیص داده می‌شه و همه لینک‌ها، CSS، عکس‌ها، درخواست‌های Ajax و آدرس بازگشت درگاه از همون ساخته می‌شن. اگه خواستی دستی ثابتش کنی، تو `.env` مقدار `APP_URL` رو بذار (مرحله ۳).
 
 ### ۲. ساخت دیتابیس
 Apache و MySQL رو از پنل کنترل XAMPP روشن کن، بعد یکی از این دو راه رو انتخاب کن:
@@ -32,6 +37,7 @@ cp .env.example .env
 
 | متغیر | توضیح |
 |---|---|
+| `APP_URL` | (اختیاری) آدرس پایه سایت، مثل `https://golara-store.test` یا `http://localhost/golara`. خالی = تشخیص خودکار |
 | `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME` | اطلاعات اتصال دیتابیس (پیش‌فرض XAMPP: `root` بدون رمز) |
 | `GEMINI_API_KEY` | کلید رایگان از [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — برای دستیار هوشمند |
 | `ZARINPAL_MERCHANT_ID` | برای تست، همون `00000000-0000-0000-0000-000000000000` کافیه (Sandbox) |
@@ -46,10 +52,13 @@ php composer.phar install
 (اگه Composer رو جدا نصب کردی، به‌جاش بزن: `composer install`)
 
 ### ۵. اجرا
-برو به آدرس:
+برو به آدرس پروژه، بسته به محل نصب، مثلاً:
 ```
-http://localhost/danshjoyar/
+http://localhost/golara/        (زیرپوشه htdocs)
+http://golara-store.test/       (دامنه اختصاصی)
 ```
+
+> فایل `.htaccess` کنار پروژه جلوی دانلود `.env`، `vendor`، `config`، `classes` و `database` رو می‌گیره؛ پس Document Root روی ریشه پروژه هم امنه (نیاز به فعال بودن `AllowOverride All` تو Apache).
 
 ## دسترسی‌های پیش‌فرض
 
@@ -82,10 +91,10 @@ http://localhost/danshjoyar/
 ### API (برای تست با Postman یا curl)
 ```bash
 # لیست محصولات (بدون نیاز به کلید)
-curl http://localhost/danshjoyar/api/v1/products.php
+curl http://golara-store.test/api/v1/products.php
 
 # ساخت محصول جدید (نیاز به کلید API - از جدول api_keys)
-curl -X POST http://localhost/danshjoyar/api/v1/products.php \
+curl -X POST http://golara-store.test/api/v1/products.php \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <کلید_تو_جدول_api_keys>" \
   -d '{"name":"تست","price":100000,"category_id":1}'

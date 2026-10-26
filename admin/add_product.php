@@ -126,7 +126,7 @@ document.getElementById('addProductForm').addEventListener('submit', function (e
     submitBtn.disabled = true;
     submitBtn.textContent = 'در حال ذخیره...';
 
-    fetch('/danshjoyar/ajax/admin_add_product.php', {
+    fetch('<?php echo url('ajax/admin_add_product.php'); ?>', {
         method: 'POST',
         body: formData
     })
