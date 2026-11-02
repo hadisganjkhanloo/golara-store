@@ -1,7 +1,5 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 $cart_count = (new Cart())->count();
 $wishlist_count = (new Wishlist())->count();
 
@@ -18,7 +16,7 @@ $nav_categories = isset($conn) ? (new Category())->all('id ASC') : [];
     <title>گل‌آرا | فروشگاه لوازم آرایشی اورجینال</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo url('assets/css/style.css'); ?>">
+    <link rel="stylesheet" href="<?php echo asset('assets/css/style.css'); ?>">
 </head>
 <body>
 
@@ -60,10 +58,10 @@ $nav_categories = isset($conn) ? (new Category())->all('id ASC') : [];
     <ul>
         <li><a href="<?php echo url('index.php'); ?>">صفحه اصلی</a></li>
         <li class="has-dropdown">
-            <a href="<?php echo url('index.php'); ?>">دسته‌بندی محصولات <span class="caret"><?php echo icon('chevron-down'); ?></span></a>
+            <a href="<?php echo url('products.php'); ?>">دسته‌بندی محصولات <span class="caret"><?php echo icon('chevron-down'); ?></span></a>
             <ul class="dropdown">
                 <?php foreach ($nav_categories as $cat): ?>
-                    <li><a href="<?php echo url('index.php?category=' . $cat['id']); ?>"><?php echo clean_input($cat['name']); ?></a></li>
+                    <li><a href="<?php echo url('products.php?category=' . $cat['id']); ?>"><?php echo clean_input($cat['name']); ?></a></li>
                 <?php endforeach; ?>
             </ul>
         </li>

@@ -2,9 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 require_admin_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

@@ -2,9 +2,7 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 
 // این بخش باید قبل از header.php اجرا بشه، چون ممکنه بخواد redirect کنه
 // و بعد از اینکه HTML چاپ شد دیگه نمی‌شه هدر جدید فرستاد
@@ -43,10 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $_SESSION['customer_id'] = $customerModel->register($name, $email, $password);
-        $_SESSION['customer_name'] = $name;
+        $customerId = $customerModel->register($name, $email, $password);
+        login_customer(['id' => $customerId, 'name' => $name]);
 
-        redirect('account.php');
+        redirect(url('account.php'));
     }
 }
 

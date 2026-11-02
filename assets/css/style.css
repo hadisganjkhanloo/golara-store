@@ -300,3 +300,72 @@ table th, table td { padding: 12px; border-bottom: 1px solid #f8e3ee; text-align
 .admin-nav { background: var(--plum); padding: 14px 20px; }
 .admin-nav a { color: #f3dbe8; text-decoration: none; margin-left: 18px; font-size: 14px; }
 .admin-nav a:hover { color: #fff; }
+
+/* ---------- موجودی انبار ---------- */
+.stock-badge { font-size: 12px; font-weight: 600; margin: 2px 0 8px; }
+.stock-in { color: #1e7a3c; }
+.stock-low { color: #b86e00; }
+.stock-out { color: #c0392b; }
+.product-card.is-out img { filter: grayscale(.85); opacity: .7; }
+.product-card.is-out .btn { background: #d9c8d3; box-shadow: none; }
+
+/* ---------- سبد خرید ---------- */
+#cartContent.is-busy { opacity: .55; pointer-events: none; transition: opacity .15s; }
+.cart-table td a { color: var(--plum); text-decoration: none; font-weight: 600; }
+.cart-table td a:hover { color: var(--pink-dark); }
+.qty-control { display: inline-flex; align-items: center; border: 1px solid #f0d3e2; border-radius: 999px; background: #fffafc; overflow: hidden; }
+.qty-btn { width: 32px; height: 32px; border: none; background: none; cursor: pointer; font-size: 17px; color: var(--pink-dark); font-family: inherit; }
+.qty-btn:hover:not(:disabled) { background: var(--pink-light); }
+.qty-btn:disabled { color: #ccc; cursor: not-allowed; }
+.qty-value { min-width: 28px; text-align: center; font-weight: 600; font-size: 14px; }
+.qty-input { width: 70px; padding: 8px 10px; border: 1px solid #f0d3e2; border-radius: 10px; background: #fffafc; font-family: inherit; font-size: 14px; text-align: center; }
+.link-danger { background: none; border: none; color: #dc2626; cursor: pointer; font-family: inherit; font-size: 13px; }
+.link-danger:hover { text-decoration: underline; }
+button.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ---------- پیام کوتاه (toast) ---------- */
+.toast-box { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { background: var(--plum); color: #fff; padding: 10px 20px; border-radius: 999px; font-size: 13px; box-shadow: 0 8px 24px rgba(74,51,71,.3); transition: opacity .3s, transform .3s; }
+.toast-error { background: #c0392b; }
+.toast.is-leaving { opacity: 0; transform: translateY(8px); }
+
+/* ---------- صفحه‌بندی ---------- */
+.pagination { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 30px 0 6px; }
+.pagination a, .pagination span { min-width: 38px; height: 38px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-size: 14px; text-decoration: none; }
+.pagination a { background: #fff; color: var(--plum-soft); border: 1px solid #f0d3e2; }
+.pagination a:hover { background: var(--pink-light); color: var(--pink-dark); }
+.pagination .current { background: linear-gradient(135deg, var(--pink), var(--lavender)); color: #fff; font-weight: 700; }
+.pagination .gap { color: #aaa; }
+
+/* ---------- فیلتر محصولات ---------- */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; background: #fff; border: 1px solid #f8e3ee; border-radius: 16px; padding: 16px 18px; margin-bottom: 22px; box-shadow: 0 4px 18px rgba(215,150,180,.12); }
+.filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 130px; }
+.filter-field.filter-wide { flex: 1 1 200px; }
+.filter-field label { font-size: 12px; color: var(--plum-soft); }
+.filter-field input, .filter-field select { padding: 8px 10px; border: 1px solid #f0d3e2; border-radius: 10px; background: #fffafc; font-family: inherit; font-size: 13px; }
+.filter-field input:focus, .filter-field select:focus { outline: none; border-color: var(--pink); }
+.filter-check { font-size: 13px; color: var(--plum-soft); display: flex; align-items: center; gap: 6px; padding-bottom: 8px; }
+.filter-actions { display: flex; gap: 8px; margin-right: auto; }
+
+/* ---------- خبرنامه ---------- */
+.newsletter-message { min-height: 22px; margin: 12px 0 0; font-size: 13px; font-weight: 600; color: #fff; }
+.newsletter-message.is-error { background: rgba(255,255,255,.9); color: #a13a5f; display: inline-block; padding: 2px 14px; border-radius: 999px; }
+.newsletter-message.is-success { background: rgba(255,255,255,.9); color: #1e7a3c; display: inline-block; padding: 2px 14px; border-radius: 999px; }
+
+/* ---------- پنل مدیریت ---------- */
+.admin-nav a.is-current { color: #fff; font-weight: 700; }
+.admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 14px 0; background: #fff; border: 1px solid #f8e3ee; border-radius: 14px; padding: 14px 16px; }
+.admin-toolbar .filter-field { min-width: 120px; }
+.admin-table .num { text-align: center; white-space: nowrap; }
+.admin-table .btn { padding: 5px 14px; font-size: 12px; }
+.stock-pill { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.stock-pill.stock-in { background: #e6f7ea; }
+.stock-pill.stock-low { background: #fff3d6; }
+.stock-pill.stock-out { background: #fde3ec; }
+.inline-form { display: inline-flex; gap: 6px; align-items: center; margin: 0; }
+.inline-form input[type="text"] { padding: 6px 10px; border: 1px solid #f0d3e2; border-radius: 10px; font-family: inherit; font-size: 13px; background: #fffafc; }
+
+@media (max-width: 560px) {
+    .filter-actions { margin-right: 0; width: 100%; }
+    .cart-table th:nth-child(2), .cart-table td:nth-child(2) { display: none; }
+}

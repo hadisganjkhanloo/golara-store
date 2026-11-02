@@ -2,9 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 
 if (!empty($_SESSION['admin_id'])) {
     redirect('dashboard.php');
@@ -39,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $admin = mysqli_fetch_assoc($result);
 
         if ($admin && password_verify($password, $admin['password'])) {
+            // شناسه سشن بعد از ورود عوض می‌شه (جلوگیری از Session Fixation)
+            regenerate_session();
             $_SESSION['admin_id'] = $admin['id'];
             $_SESSION['admin_username'] = $admin['username'];
             $_SESSION['admin_login_attempts'] = 0;
@@ -65,7 +65,7 @@ if ($require_captcha) {
 <head>
     <meta charset="UTF-8">
     <title>ورود به پنل مدیریت</title>
-    <link rel="stylesheet" href="<?php echo url('assets/css/style.css'); ?>">
+    <link rel="stylesheet" href="<?php echo asset('assets/css/style.css'); ?>">
 </head>
 <body>
 <main class="container" style="padding-top:60px;">

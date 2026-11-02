@@ -2,9 +2,7 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 
 if (!empty($_SESSION['customer_id'])) {
     redirect('account.php');
@@ -37,11 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $customer = $customerModel->verifyLogin($email, $password);
 
         if ($customer) {
-            $_SESSION['customer_id'] = $customer['id'];
-            $_SESSION['customer_name'] = $customer['name'];
+            // شناسه سشن عوض می‌شه و سبد/علاقه‌مندی‌های مهمان تو حساب کاربر ادغام می‌شن
+            login_customer($customer);
             $_SESSION['login_attempts'] = 0;
             unset($_SESSION['captcha_result']);
-            redirect('account.php');
+            redirect(url('account.php'));
         } else {
             // جلوگیری از Brute Force: بعد از چندبار تلاش ناموفق، دفعه بعد کپچا لازم می‌شه
             $_SESSION['login_attempts']++;

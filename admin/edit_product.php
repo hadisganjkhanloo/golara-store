@@ -2,18 +2,13 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 require_admin_login();
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
-$stmt = mysqli_prepare($conn, "SELECT * FROM products WHERE id = ?");
-mysqli_stmt_bind_param($stmt, 'i', $id);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-$product = mysqli_fetch_assoc($result);
+$productModel = new Product();
+$product = $productModel->find($id);
 
 if (!$product) {
     require_once __DIR__ . '/_header.php';
@@ -25,15 +20,18 @@ if (!$product) {
 $errors = [];
 $name = $product['name'];
 $description = $product['description'];
-$price = $product['price'];
+$price = (string) $product['price'];
+$stock = (string) $product['stock'];
 $category_id = (int) $product['category_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf_token();
 
-    $name = clean_input($_POST['name'] ?? '');
-    $description = clean_input($_POST['description'] ?? '');
-    $price = $_POST['price'] ?? '';
+    // مقدارها خام ذخیره می‌شن؛ موقع نمایش با clean_input امن می‌شن
+    $name = trim($_POST['name'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+    $price = trim($_POST['price'] ?? '');
+    $stock = trim($_POST['stock'] ?? '');
     $category_id = (int) ($_POST['category_id'] ?? 0);
 
     if ($name === '') {
@@ -41,6 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!preg_match('/^[0-9]+$/', $price)) {
         $errors[] = 'قیمت باید یک عدد صحیح باشد.';
+    }
+    if (!preg_match('/^[0-9]+$/', $stock)) {
+        $errors[] = 'موجودی باید یک عدد صحیح (۰ یا بیشتر) باشد.';
     }
 
     $image_name = $product['image'];
@@ -54,9 +55,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $stmt = mysqli_prepare($conn, "UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, image = ? WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, 'issisi', $category_id, $name, $description, $price, $image_name, $id);
-        mysqli_stmt_execute($stmt);
+        $productModel->update($id, [
+            'category_id' => $category_id > 0 ? $category_id : null,
+            'name' => $name,
+            'description' => $description,
+            'price' => (int) $price,
+            'stock' => (int) $stock,
+            'image' => $image_name,
+        ]);
 
         redirect('dashboard.php');
     }
@@ -64,11 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 require_once __DIR__ . '/_header.php';
 
-$categories_result = mysqli_query($conn, "SELECT * FROM categories");
-$categories = [];
-while ($cat = mysqli_fetch_assoc($categories_result)) {
-    $categories[] = $cat;
-}
+$categories = (new Category())->all('id ASC');
 ?>
 
 <h1>ویرایش محصول</h1>
@@ -85,10 +87,11 @@ while ($cat = mysqli_fetch_assoc($categories_result)) {
     <?php echo csrf_field(); ?>
 
     <label for="name">نام محصول</label>
-    <input type="text" id="name" name="name" value="<?php echo $name; ?>">
+    <input type="text" id="name" name="name" value="<?php echo clean_input($name); ?>">
 
     <label for="category_id">دسته‌بندی</label>
     <select id="category_id" name="category_id">
+        <option value="0">بدون دسته‌بندی</option>
         <?php foreach ($categories as $cat): ?>
             <option value="<?php echo $cat['id']; ?>" <?php echo $category_id === (int)$cat['id'] ? 'selected' : ''; ?>>
                 <?php echo clean_input($cat['name']); ?>
@@ -97,13 +100,16 @@ while ($cat = mysqli_fetch_assoc($categories_result)) {
     </select>
 
     <label for="price">قیمت (تومان)</label>
-    <input type="text" id="price" name="price" value="<?php echo $price; ?>">
+    <input type="text" inputmode="numeric" id="price" name="price" value="<?php echo clean_input($price); ?>">
+
+    <label for="stock">موجودی انبار (تعداد)</label>
+    <input type="number" id="stock" name="stock" min="0" step="1" value="<?php echo clean_input($stock); ?>">
 
     <label for="description">توضیحات</label>
-    <textarea id="description" name="description" rows="4"><?php echo $description; ?></textarea>
+    <textarea id="description" name="description" rows="4"><?php echo clean_input($description); ?></textarea>
 
     <?php if ($product['image']): ?>
-        <img src="<?php echo url('uploads/products/' . $product['image']); ?>" style="width:120px; margin-top:10px; border-radius:6px;">
+        <img src="<?php echo url('uploads/products/' . $product['image']); ?>" style="width:120px; margin-top:10px; border-radius:6px;" alt="">
     <?php endif; ?>
 
     <label for="image">تصویر جدید (اختیاری)</label>

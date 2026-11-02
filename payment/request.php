@@ -5,11 +5,15 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/config.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 
 require_customer_login();
+
+// ساخت سفارش موجودی انبار رو رزرو می‌کنه، پس باید POST + توکن CSRF باشه (نه یه لینک ساده که هر سایتی بتونه صداش بزنه)
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    redirect(url('cart.php'));
+}
+verify_csrf_token();
 
 $cart = new Cart();
 
@@ -17,16 +21,35 @@ if ($cart->isEmpty()) {
     redirect(url('cart.php'));
 }
 
-$cartItems = $cart->getItemsWithProducts();
-$total = $cart->getTotal();
+$orderModel = new Order();
 
-if ($total <= 0) {
+// سفارش‌های رهاشده‌ی قبلی (این کاربر یا بقیه) موجودی انبار رو آزاد می‌کنن، قبل از اینکه موجودی جدید رو چک کنیم
+$orderModel->releaseExpired();
+$orderModel->cancelPendingForCustomer((int) $_SESSION['customer_id']);
+
+// موجودی ممکنه از موقع افزودن به سبد تا الان عوض شده باشه؛ سبد رو با انبار هماهنگ می‌کنیم
+$changes = $cart->syncWithStock();
+if (!empty($changes)) {
+    $_SESSION['cart_notice'] = 'موجودی بعضی کالاها تغییر کرده بود و سبد شما به‌روز شد. لطفاً دوباره بررسی و پرداخت کنید.';
     redirect(url('cart.php'));
 }
 
-// سفارش رو با وضعیت pending ثبت می‌کنیم؛ فقط بعد از تایید درگاه، paid می‌شه
-$orderModel = new Order();
-$order_id = $orderModel->createFromCartItems((int) $_SESSION['customer_id'], $cartItems, $total);
+$cartItems = $cart->getItemsWithProducts();
+
+if (empty($cartItems)) {
+    redirect(url('cart.php'));
+}
+
+// سفارش با وضعیت pending ساخته می‌شه و موجودی همون لحظه رزرو می‌شه؛ فقط بعد از تایید درگاه، paid می‌شه
+$reservation = $orderModel->createWithReservation((int) $_SESSION['customer_id'], $cartItems);
+
+if (!$reservation['ok']) {
+    $_SESSION['cart_notice'] = $reservation['error'];
+    redirect(url('cart.php'));
+}
+
+$order_id = $reservation['order_id'];
+$total = (int) $orderModel->find($order_id)['total_amount'];
 
 // درخواست پرداخت به درگاه - هرچی implements PaymentGatewayInterface باشه اینجا جواب می‌ده
 $gateway = new ZarinpalGateway(ZARINPAL_MERCHANT_ID, ZARINPAL_REQUEST_URL, ZARINPAL_VERIFY_URL, ZARINPAL_STARTPAY_URL);

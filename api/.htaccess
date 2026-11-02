@@ -1,0 +1,13 @@
+# همه درخواست‌های /api/... به api/index.php (روتر) می‌رن.
+# فایل یا پوشه واقعی (مثلا خود index.php) دست نمی‌خوره.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+
+    # هدر X-API-Key روی بعضی تنظیمات Apache/CGI به PHP نمی‌رسه؛ اینجا صریح پاس داده می‌شه
+    RewriteCond %{HTTP:X-API-Key} .
+    RewriteRule .* - [E=HTTP_X_API_KEY:%{HTTP:X-API-Key}]
+</IfModule>

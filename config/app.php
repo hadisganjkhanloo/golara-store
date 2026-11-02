@@ -5,6 +5,13 @@
 //  ۱) اگه APP_URL تو .env پر شده باشه (مثلاً https://golara-store.test) همون استفاده می‌شه
 //  ۲) اگه خالی باشه، از روی خود درخواست تشخیص داده می‌شه (برای localhost/پوشه یا دامنه .test هر دو جواب می‌ده)
 
+// پشت پروکسی/لودبالانسر هم تشخیص می‌ده درخواست اصلی HTTPS بوده یا نه
+function is_https(): bool
+{
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+}
+
 $appUrl = trim($_ENV['APP_URL'] ?? '');
 
 if ($appUrl !== '') {
@@ -25,11 +32,9 @@ if ($appUrl !== '') {
         }
     }
 
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
-    $appUrl = ($isHttps ? 'https' : 'http') . '://' . $host . $basePath;
+    $appUrl = (is_https() ? 'https' : 'http') . '://' . $host . $basePath;
 }
 
 define('BASE_PATH', $basePath);   // مثلاً '' یا '/danshjoyar'  (بدون / آخر)
@@ -46,4 +51,13 @@ function url(string $path = ''): string
 function absolute_url(string $path = ''): string
 {
     return APP_URL . '/' . ltrim($path, '/');
+}
+
+// آدرس فایل استاتیک همراه با زمان آخرین تغییرش (?v=...): بعد از هر تغییر CSS/JS مرورگر نسخه‌ی کهنه رو از کش نمی‌ده
+function asset(string $path): string
+{
+    $file = dirname(__DIR__) . '/' . ltrim($path, '/');
+    $version = is_file($file) ? filemtime($file) : 0;
+
+    return url($path) . '?v=' . $version;
 }

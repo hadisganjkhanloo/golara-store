@@ -31,7 +31,7 @@
             <h4>دسته‌بندی‌ها</h4>
             <ul>
                 <?php foreach ($nav_categories as $fc): ?>
-                    <li><a href="<?php echo url('index.php?category=' . $fc['id']); ?>"><?php echo clean_input($fc['name']); ?></a></li>
+                    <li><a href="<?php echo url('products.php?category=' . $fc['id']); ?>"><?php echo clean_input($fc['name']); ?></a></li>
                 <?php endforeach; ?>
             </ul>
         </div>
@@ -39,6 +39,7 @@
             <h4>دسترسی سریع</h4>
             <ul>
                 <li><a href="<?php echo url('index.php'); ?>">صفحه اصلی</a></li>
+                <li><a href="<?php echo url('products.php'); ?>">همه محصولات</a></li>
                 <li><a href="<?php echo url('search.php'); ?>">جستجو</a></li>
                 <li><a href="<?php echo url('wishlist.php'); ?>">علاقه‌مندی‌ها</a></li>
                 <li><a href="<?php echo url('cart.php'); ?>">سبد خرید</a></li>
@@ -61,151 +62,12 @@
     </div>
 </footer>
 
+
 <script>
-// تابع مشترک: توکن CSRF رو از متا تگ هدر می‌خونه تا تو همه fetch های POST بفرستیمش
-function getCsrfToken() {
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    return meta ? meta.content : '';
-}
-
-// event delegation: یه گوش‌دهنده رو کل صفحه، برای همه دکمه‌های قلب (چه تو کارت محصول، چه تو صفحه جزئیات)
-document.addEventListener('click', function (event) {
-    const btn = event.target.closest('.wish-btn, .wish-btn-text');
-    if (!btn || btn.disabled) {
-        return; // جلوگیری از کلیک‌های پشت‌سرهم تا وقتی جواب قبلی نیومده
-    }
-
-    const productId = btn.dataset.productId;
-    btn.disabled = true;
-
-    fetch('<?php echo url('ajax/toggle_wishlist.php'); ?>', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'product_id=' + productId + '&csrf_token=' + encodeURIComponent(getCsrfToken())
-    })
-        .then(function (response) {
-            return response.json();
-        })
-        .then(function (data) {
-            const wishlistBadge = document.getElementById('wishlistBadge');
-            if (wishlistBadge) {
-                wishlistBadge.textContent = data.count;
-            }
-
-            // چون ممکنه همین محصول تو چند بخش صفحه تکرار شده باشه، همه رو آپدیت می‌کنیم
-            const matches = document.querySelectorAll(
-                '.wish-btn[data-product-id="' + productId + '"], .wish-btn-text[data-product-id="' + productId + '"]'
-            );
-            matches.forEach(function (el) {
-                el.classList.toggle('is-active', data.active);
-                const label = el.querySelector('.wish-btn-label');
-                if (label) {
-                    label.textContent = data.active ? 'در علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها';
-                }
-
-                // تو خود صفحه علاقه‌مندی‌ها، اگه قلب خاموش شد کل کارت محصول رو حذف کن
-                if (!data.active && window.location.pathname.indexOf('wishlist.php') !== -1) {
-                    const card = el.closest('.product-card');
-                    if (card) {
-                        card.remove();
-                    }
-                }
-
-                el.disabled = false;
-            });
-        })
-        .catch(function () {
-            btn.disabled = false;
-        });
-});
-
-// دستیار هوشمند (چت با Gemini)
-(function () {
-    const toggleBtn = document.getElementById('aiChatToggle');
-    const panel = document.getElementById('aiChatPanel');
-    const closeBtn = document.getElementById('aiChatClose');
-    const resetBtn = document.getElementById('aiChatReset');
-    const form = document.getElementById('aiChatForm');
-    const input = document.getElementById('aiChatInput');
-    const messagesBox = document.getElementById('aiChatMessages');
-
-    if (!toggleBtn) {
-        return;
-    }
-
-    toggleBtn.addEventListener('click', function () {
-        panel.classList.toggle('is-open');
-        if (panel.classList.contains('is-open')) {
-            input.focus();
-        }
-    });
-
-    closeBtn.addEventListener('click', function () {
-        panel.classList.remove('is-open');
-    });
-
-    function addMessage(text, who) {
-        const msg = document.createElement('div');
-        msg.className = 'ai-msg ai-msg-' + who;
-        msg.textContent = text;
-        messagesBox.appendChild(msg);
-        messagesBox.scrollTop = messagesBox.scrollHeight;
-        return msg;
-    }
-
-    resetBtn.addEventListener('click', function () {
-        fetch('<?php echo url('ajax/ai_chat.php'); ?>', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'reset=1&csrf_token=' + encodeURIComponent(getCsrfToken())
-        }).then(function () {
-            messagesBox.innerHTML = '';
-            addMessage('گفتگوی جدید شروع شد 🌸 چطور می‌تونم کمکت کنم؟', 'bot');
-        });
-    });
-
-    form.addEventListener('submit', function (event) {
-        event.preventDefault();
-
-        const message = input.value.trim();
-        if (message === '') {
-            return;
-        }
-
-        addMessage(message, 'user');
-        input.value = '';
-        input.disabled = true;
-
-        const loadingMsg = addMessage('در حال تایپ...', 'bot');
-        loadingMsg.classList.add('ai-msg-loading');
-
-        fetch('<?php echo url('ajax/ai_chat.php'); ?>', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'message=' + encodeURIComponent(message) + '&csrf_token=' + encodeURIComponent(getCsrfToken())
-        })
-            .then(function (response) {
-                return response.json();
-            })
-            .then(function (data) {
-                loadingMsg.remove();
-                if (data.success) {
-                    addMessage(data.reply, 'bot');
-                } else {
-                    addMessage('⚠️ ' + data.error, 'bot');
-                }
-            })
-            .catch(function () {
-                loadingMsg.remove();
-                addMessage('⚠️ ارتباط با سرور برقرار نشد.', 'bot');
-            })
-            .finally(function () {
-                input.disabled = false;
-                input.focus();
-            });
-    });
-})();
+// آدرس پایه API (از BASE_PATH ساخته می‌شه، پس روی هر دامنه/پوشه‌ای درسته)
+window.GOLARA = { apiUrl: '<?php echo url('api/v1'); ?>' };
 </script>
+<script src="<?php echo asset('assets/js/app.js'); ?>"></script>
 
 </body>
 </html>

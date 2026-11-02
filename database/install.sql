@@ -20,6 +20,7 @@ CREATE TABLE products (
     name VARCHAR(150) NOT NULL,
     description TEXT,
     price INT NOT NULL,
+    stock INT UNSIGNED NOT NULL DEFAULT 0,
     image VARCHAR(255) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
@@ -88,6 +89,28 @@ CREATE TABLE order_items (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+-- سبد خرید و علاقه‌مندی‌های کاربرِ واردشده (مهمان‌ها فقط تو سشن نگه داشته می‌شن)
+CREATE TABLE cart_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT UNSIGNED NOT NULL DEFAULT 1,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_customer_product_cart (customer_id, product_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE wishlist_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    product_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_customer_product_wishlist (customer_id, product_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
 CREATE TABLE api_keys (
     id INT AUTO_INCREMENT PRIMARY KEY,
     api_key VARCHAR(64) NOT NULL UNIQUE,
@@ -116,6 +139,11 @@ INSERT INTO products (id, category_id, name, description, price, image) VALUES
 (14, 1, 'رژگونه نیکس Blush', 'رژگونه پودری نیکس با رنگدانه بالا و پخش‌شوندگی روان', 380000, 'nyx_blush.jpg'),
 (15, 3, 'سرم نیاسینامید اردینری', 'سرم کنترل‌کننده چربی و منافذ The Ordinary Niacinamide 10% + Zinc 1%', 590000, 'ordinary_niacinamide.jpg'),
 (16, 4, 'عطر گوچی Bloom', 'عطر زنانه گوچی با رایحه گلی سفید و یاسمن، ماندگاری بالا', 2190000, 'gucci_bloom.jpg');
+
+-- موجودی انبار نمونه (یکی کم‌موجود و یکی ناموجود، تا رفتار سایت رو بشه تست کرد)
+UPDATE products SET stock = 25;
+UPDATE products SET stock = 3 WHERE id = 8;
+UPDATE products SET stock = 0 WHERE id = 16;
 
 -- یوزر ادمین پیش‌فرض: admin / admin123
 INSERT INTO admins (username, password) VALUES

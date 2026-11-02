@@ -7,9 +7,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/../telegram/config.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 
 $order_id = isset($_GET['order_id']) ? (int) $_GET['order_id'] : 0;
 $authority = $_GET['Authority'] ?? '';

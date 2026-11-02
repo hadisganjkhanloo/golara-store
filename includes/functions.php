@@ -61,17 +61,46 @@ function csrf_field()
     return '<input type="hidden" name="csrf_token" value="' . $token . '">';
 }
 
-// موقع پردازش POST صداش می‌زنیم؛ اگه توکن غلط یا نبود، درخواست رو رد می‌کنه
-function verify_csrf_token()
+// توکن ارسالی (از فیلد فرم یا هدر X-CSRF-Token درخواست‌های Ajax) با توکن سشن مقایسه می‌شه
+function csrf_is_valid(string $sent): bool
 {
-    $sent = $_POST['csrf_token'] ?? '';
     $real = $_SESSION['csrf_token'] ?? '';
 
     // hash_equals جلوی Timing Attack رو می‌گیره (مقایسه رشته‌ها به یه زمان ثابت انجام می‌شه)
-    if ($sent === '' || $real === '' || !hash_equals($real, $sent)) {
+    return $sent !== '' && $real !== '' && hash_equals($real, $sent);
+}
+
+// موقع پردازش POST صداش می‌زنیم؛ اگه توکن غلط یا نبود، درخواست رو رد می‌کنه
+function verify_csrf_token()
+{
+    $sent = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+
+    if (!csrf_is_valid((string) $sent)) {
         http_response_code(403);
         die('درخواست نامعتبر است. لطفاً صفحه را رفرش کرده و دوباره تلاش کنید.');
     }
+}
+
+// ورود مشتری: شناسه سشن عوض می‌شه (جلوگیری از Session Fixation) و سبد/علاقه‌مندی‌های مهمان تو حسابش ادغام می‌شن
+function login_customer(array $customer): void
+{
+    regenerate_session();
+
+    $_SESSION['customer_id'] = (int) $customer['id'];
+    $_SESSION['customer_name'] = $customer['name'];
+
+    Cart::mergeGuestCart((int) $customer['id']);
+    Wishlist::mergeGuestList((int) $customer['id']);
+}
+
+// خروج مشتری: سبد و علاقه‌مندی‌ها تو دیتابیس می‌مونن، فقط نسخه‌ی داخل سشن پاک می‌شه
+function logout_customer(): void
+{
+    unset($_SESSION['customer_id'], $_SESSION['customer_name']);
+    $_SESSION['cart'] = [];
+    $_SESSION['wishlist'] = [];
+
+    regenerate_session();
 }
 
 function icon($name, $class = 'icon')
@@ -91,25 +120,17 @@ function icon($name, $class = 'icon')
     return preg_replace('/<svg /', '<svg class="' . $class . '" ', $svg, 1);
 }
 
-function search_products($conn, $query)
+// برچسب وضعیت موجودی: [متن، کلاس CSS]
+function stock_badge(int $stock): array
 {
-    // فقط حروف فارسی/انگلیسی، عدد و فاصله مجاز است
-    if (!preg_match('/^[\p{L}\p{N}\s]+$/u', $query)) {
-        return ['error' => 'عبارت جستجو فقط می‌تواند شامل حروف، عدد و فاصله باشد.', 'products' => []];
+    if ($stock <= 0) {
+        return ['ناموجود', 'stock-out'];
+    }
+    if ($stock <= Product::LOW_STOCK_THRESHOLD) {
+        return ['تنها ' . $stock . ' عدد باقی مانده', 'stock-low'];
     }
 
-    $stmt = mysqli_prepare($conn, "SELECT * FROM products WHERE name LIKE ? ORDER BY created_at DESC");
-    $like = '%' . $query . '%';
-    mysqli_stmt_bind_param($stmt, 's', $like);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-
-    $products = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $products[] = $row;
-    }
-
-    return ['error' => null, 'products' => $products];
+    return ['موجود در انبار', 'stock-in'];
 }
 
 function render_product_card($product)
@@ -119,13 +140,153 @@ function render_product_card($product)
         : 'https://via.placeholder.com/220x150/fbe4ee/c2477a?text=Golara';
 
     $is_wishlisted = (new Wishlist())->has((int) $product['id']);
+    $stock = (int) ($product['stock'] ?? 0);
+    [$stock_text, $stock_class] = stock_badge($stock);
     ?>
-    <div class="product-card">
+    <div class="product-card<?php echo $stock <= 0 ? ' is-out' : ''; ?>">
         <button type="button" class="wish-btn<?php echo $is_wishlisted ? ' is-active' : ''; ?>" data-product-id="<?php echo $product['id']; ?>" title="افزودن به علاقه‌مندی‌ها"><?php echo icon('heart'); ?></button>
         <img src="<?php echo $image_url; ?>" alt="<?php echo clean_input($product['name']); ?>" loading="lazy">
         <h3><?php echo clean_input($product['name']); ?></h3>
         <p class="price"><?php echo format_price($product['price']); ?></p>
+        <?php if ($stock <= Product::LOW_STOCK_THRESHOLD): ?>
+            <p class="stock-badge <?php echo $stock_class; ?>"><?php echo $stock_text; ?></p>
+        <?php endif; ?>
         <a href="<?php echo url('product.php?id=' . $product['id']); ?>" class="btn">مشاهده</a>
+    </div>
+    <?php
+}
+
+// لینک‌های صفحه‌بندی: «قبلی ۱ ۲ [۳] ۴ ۵ بعدی»؛ بقیه پارامترهای کوئری (فیلتر، جستجو، ...) حفظ می‌شن
+function render_pagination(int $page, int $pages, string $baseUrl, array $query = []): void
+{
+    if ($pages <= 1) {
+        return;
+    }
+
+    $link = function (int $target) use ($baseUrl, $query) {
+        $q = $query;
+        unset($q['page']);
+        if ($target > 1) {
+            $q['page'] = $target;
+        }
+        $q = array_filter($q, fn($v) => $v !== '' && $v !== null && $v !== 0 && $v !== '0' && $v !== false);
+
+        return $baseUrl . ($q ? '?' . http_build_query($q) : '');
+    };
+
+    $window = 2;
+    $from = max(1, $page - $window);
+    $to = min($pages, $page + $window);
+    ?>
+    <nav class="pagination" aria-label="صفحه‌بندی">
+        <?php if ($page > 1): ?>
+            <a href="<?php echo clean_input($link($page - 1)); ?>" rel="prev">قبلی</a>
+        <?php endif; ?>
+
+        <?php if ($from > 1): ?>
+            <a href="<?php echo clean_input($link(1)); ?>">1</a>
+            <?php if ($from > 2): ?><span class="gap">…</span><?php endif; ?>
+        <?php endif; ?>
+
+        <?php for ($i = $from; $i <= $to; $i++): ?>
+            <?php if ($i === $page): ?>
+                <span class="current" aria-current="page"><?php echo $i; ?></span>
+            <?php else: ?>
+                <a href="<?php echo clean_input($link($i)); ?>"><?php echo $i; ?></a>
+            <?php endif; ?>
+        <?php endfor; ?>
+
+        <?php if ($to < $pages): ?>
+            <?php if ($to < $pages - 1): ?><span class="gap">…</span><?php endif; ?>
+            <a href="<?php echo clean_input($link($pages)); ?>"><?php echo $pages; ?></a>
+        <?php endif; ?>
+
+        <?php if ($page < $pages): ?>
+            <a href="<?php echo clean_input($link($page + 1)); ?>" rel="next">بعدی</a>
+        <?php endif; ?>
+    </nav>
+    <?php
+}
+
+// جدول سبد خرید؛ هم موقع لود صفحه (cart.php) و هم بعد از هر تغییر Ajax (کلید html در جواب API) از همین استفاده می‌شه
+function render_cart_table(array $items, int $total): void
+{
+    if (empty($items)) {
+        ?>
+        <p>سبد خرید شما خالی است. <a href="<?php echo url('products.php'); ?>">مشاهده محصولات</a></p>
+        <?php
+        return;
+    }
+
+    $has_problem = false;
+    foreach ($items as $item) {
+        if (!$item['enough']) {
+            $has_problem = true;
+        }
+    }
+    ?>
+    <table class="cart-table">
+        <thead>
+            <tr>
+                <th>محصول</th>
+                <th>قیمت واحد</th>
+                <th>تعداد</th>
+                <th>جمع</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($items as $item): ?>
+                <?php $pid = (int) $item['product']['id']; ?>
+                <tr>
+                    <td>
+                        <a href="<?php echo url('product.php?id=' . $pid); ?>"><?php echo clean_input($item['product']['name']); ?></a>
+                        <?php if (!$item['in_stock']): ?>
+                            <div class="stock-badge stock-out">این کالا ناموجود شده است</div>
+                        <?php elseif (!$item['enough']): ?>
+                            <div class="stock-badge stock-low">فقط <?php echo $item['stock']; ?> عدد موجود است</div>
+                        <?php endif; ?>
+                    </td>
+                    <td><?php echo format_price($item['product']['price']); ?></td>
+                    <td>
+                        <div class="qty-control" data-product-id="<?php echo $pid; ?>">
+                            <button type="button" class="qty-btn" data-action="dec" aria-label="کم کردن">−</button>
+                            <span class="qty-value"><?php echo $item['qty']; ?></span>
+                            <button type="button" class="qty-btn" data-action="inc" aria-label="زیاد کردن" <?php echo $item['qty'] >= $item['stock'] ? 'disabled' : ''; ?>>+</button>
+                        </div>
+                    </td>
+                    <td><?php echo format_price($item['line_total']); ?></td>
+                    <td><button type="button" class="link-danger" data-action="remove" data-product-id="<?php echo $pid; ?>">حذف</button></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+
+    <p style="margin-top:16px; font-size:18px;">جمع کل: <strong class="price"><?php echo format_price($total); ?></strong></p>
+
+    <?php if (!empty($_SESSION['customer_id'])): ?>
+        <form method="post" action="<?php echo url('payment/request.php'); ?>" style="margin-top:16px;">
+            <?php echo csrf_field(); ?>
+            <button type="submit" class="btn" <?php echo $has_problem ? 'disabled' : ''; ?>>تسویه حساب و پرداخت</button>
+        </form>
+    <?php else: ?>
+        <p style="margin-top:16px; font-size:14px;">برای تسویه حساب، ابتدا <a href="<?php echo url('login.php'); ?>" style="color:var(--pink-dark);">وارد حساب کاربری</a> شو. سبد فعلی‌ات بعد از ورود حفظ می‌شه.</p>
+    <?php endif;
+}
+
+// شبکه کارت‌های علاقه‌مندی؛ مثل جدول سبد هم برای لود اولیه و هم برای به‌روزرسانی Ajax
+function render_wishlist_grid(array $products): void
+{
+    if (empty($products)) {
+        ?>
+        <p style="margin-top:14px;">هنوز محصولی به علاقه‌مندی‌ها اضافه نکردی. <a href="<?php echo url('products.php'); ?>">مشاهده محصولات</a></p>
+        <?php
+        return;
+    }
+    ?>
+    <p style="margin-top:8px; color:var(--plum-soft); font-size:13px;">با کلیک روی قلب هر محصول می‌تونی از این لیست حذفش کنی.</p>
+    <div class="product-grid" style="margin-top:16px;">
+        <?php foreach ($products as $product): render_product_card($product); endforeach; ?>
     </div>
     <?php
 }

@@ -2,16 +2,20 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+start_secure_session();
 
 require_customer_login();
 
-require_once __DIR__ . '/includes/header.php';
-
 $customerModel = new Customer();
 $customer = $customerModel->find((int) $_SESSION['customer_id']);
+
+// حساب از دیتابیس حذف شده ولی سشن هنوز زنده‌ست؛ باید قبل از چاپ هرچیزی redirect بشه
+if (!$customer) {
+    logout_customer();
+    redirect(url('login.php'));
+}
+
+require_once __DIR__ . '/includes/header.php';
 
 $review_count = (new Review())->countForCustomer((int) $_SESSION['customer_id']);
 $order_count = (new Order())->countPaidByCustomer((int) $_SESSION['customer_id']);
@@ -25,11 +29,15 @@ $order_count = (new Order())->countPaidByCustomer((int) $_SESSION['customer_id']
     <p style="margin-top:8px;"><strong>عضو از:</strong> <?php echo $customer['created_at']; ?></p>
     <p style="margin-top:8px;"><strong>تعداد نظرات ثبت‌شده:</strong> <?php echo $review_count; ?></p>
     <p style="margin-top:8px;"><strong>تعداد سفارش پرداخت‌شده:</strong> <?php echo $order_count; ?></p>
+    <p style="margin-top:8px;"><strong>کالاهای داخل سبد خرید:</strong> <?php echo (new Cart())->count(); ?></p>
+    <p style="margin-top:8px;"><strong>محصولات مورد علاقه:</strong> <?php echo (new Wishlist())->count(); ?></p>
+    <p style="margin-top:10px; font-size:12px; color:var(--plum-soft);">سبد خرید و علاقه‌مندی‌هات تو حساب کاربری‌ات ذخیره می‌شن؛ از هر دستگاهی وارد بشی همین‌ها رو می‌بینی.</p>
 
     <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
-        <a href="orders.php" class="btn">سفارش‌های من</a>
-        <a href="wishlist.php" class="btn btn-outline">علاقه‌مندی‌های من</a>
-        <a href="logout.php" class="btn btn-danger">خروج از حساب</a>
+        <a href="<?php echo url('cart.php'); ?>" class="btn">سبد خرید</a>
+        <a href="<?php echo url('orders.php'); ?>" class="btn btn-outline">سفارش‌های من</a>
+        <a href="<?php echo url('wishlist.php'); ?>" class="btn btn-outline">علاقه‌مندی‌های من</a>
+        <a href="<?php echo url('logout.php'); ?>" class="btn btn-danger">خروج از حساب</a>
     </div>
 </div>
 
