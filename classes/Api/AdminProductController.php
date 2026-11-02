@@ -37,9 +37,11 @@ class AdminProductController extends BaseController
         $image = null;
         $file = $request->file('image');
         if ($file && !empty($file['name'])) {
-            $image = upload_product_image($file);
-            if ($image === false) {
-                $errors['image'] = 'فرمت تصویر مجاز نیست (فقط jpg، jpeg، png، webp).';
+            $upload = store_product_image($file);
+            if (!$upload['ok']) {
+                $errors['image'] = $upload['error'];
+            } else {
+                $image = $upload['name'];
             }
         }
 

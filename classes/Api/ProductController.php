@@ -114,7 +114,8 @@ class ProductController extends BaseController
             JsonResponse::error('محصولی با این شناسه پیدا نشد.', 404);
         }
 
-        $model->delete($id);
+        // حذف نرم: محصول از فروشگاه پنهان می‌شه ولی سفارش‌ها و آمار فروشش سر جاشون می‌مونن
+        $model->softDelete($id);
 
         JsonResponse::success(null, 'محصول حذف شد.');
     }

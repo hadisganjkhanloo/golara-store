@@ -42,17 +42,46 @@ class TelegramNotifier
 
     public function sendNewOrderNotification(array $order, array $items): bool
     {
-        $message = "🛍 <b>سفارش جدید تو گل‌آرا!</b>\n\n";
-        $message .= "شماره سفارش: #{$order['id']}\n";
-        $message .= "مبلغ: " . number_format($order['total_amount']) . " تومان\n\n";
-        $message .= "محصولات:\n";
+        // parse_mode=HTML است؛ متن‌هایی که از کاربر میان (نام، آدرس) باید escape بشن
+        $e = fn($text) => htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
+
+        $message = "🛍 <b>سفارش جدید تو گل‌آرا!</b>
+
+";
+        $message .= "شماره سفارش: #{$order['id']}
+";
+        $message .= "مبلغ: " . number_format($order['total_amount']) . " تومان
+";
+
+        if (!empty($order['discount_amount'])) {
+            $message .= "تخفیف: " . number_format($order['discount_amount']) . " تومان (" . $e($order['coupon_code']) . ")
+";
+        }
+
+        $message .= "
+محصولات:
+";
 
         foreach ($items as $item) {
-            $message .= "• {$item['product_name']} × {$item['quantity']}\n";
+            $message .= "• " . $e($item['product_name']) . " × {$item['quantity']}
+";
+        }
+
+        if (!empty($order['shipping_address'])) {
+            $message .= "
+📦 <b>ارسال به:</b>
+";
+            $message .= $e($order['shipping_name']) . " — " . $e($order['shipping_phone']) . "
+";
+            $message .= $e($order['shipping_city']) . "، " . $e($order['shipping_address']) . "
+";
+            $message .= "کدپستی: " . $e($order['shipping_postal_code']) . "
+";
         }
 
         if (!empty($order['ref_id'])) {
-            $message .= "\nکد پیگیری: {$order['ref_id']}";
+            $message .= "
+کد پیگیری: " . $e($order['ref_id']);
         }
 
         return $this->send($message);

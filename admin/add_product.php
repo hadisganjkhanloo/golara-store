@@ -17,8 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // مقدارها خام ذخیره می‌شن؛ موقع نمایش با clean_input امن می‌شن (نه موقع ذخیره، تا دوبار escape نشن)
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $price = trim($_POST['price'] ?? '');
-    $stock = trim($_POST['stock'] ?? '');
+    $price = normalize_digits(trim($_POST['price'] ?? ''));
+    $stock = normalize_digits(trim($_POST['stock'] ?? ''));
     $category_id = (int) ($_POST['category_id'] ?? 0);
 
     if ($name === '') {
@@ -33,9 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $image_name = null;
     if (!empty($_FILES['image']['name'])) {
-        $image_name = upload_product_image($_FILES['image']);
-        if ($image_name === false) {
-            $errors[] = 'فرمت تصویر مجاز نیست (فقط jpg، jpeg، png، webp).';
+        $upload = store_product_image($_FILES['image']);
+        if (!$upload['ok']) {
+            $errors[] = $upload['error'];
+        } else {
+            $image_name = $upload['name'];
         }
     }
 
@@ -53,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$page_scripts = ['assets/js/admin-product.js'];
 require_once __DIR__ . '/_header.php';
 
 $categories = (new Category())->all('id ASC');
@@ -60,11 +63,11 @@ $categories = (new Category())->all('id ASC');
 
 <h1>افزودن محصول جدید</h1>
 
-<div id="formAlerts">
+<div id="formAlerts" role="status">
     <?php if (!empty($errors)): ?>
-        <div class="alert alert-error">
+        <div class="alert alert-error" role="alert">
             <?php foreach ($errors as $error): ?>
-                <div><?php echo $error; ?></div>
+                <div><?php echo clean_input($error); ?></div>
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
@@ -95,72 +98,11 @@ $categories = (new Category())->all('id ASC');
     <label for="description">توضیحات</label>
     <textarea id="description" name="description" rows="4"><?php echo clean_input($description); ?></textarea>
 
-    <label for="image">تصویر محصول</label>
-    <input type="file" id="image" name="image" accept="image/*">
-    <img id="imagePreview" src="" alt="پیش‌نمایش" style="display:none; width:120px; height:120px; object-fit:cover; border-radius:10px; margin-top:10px;">
+    <label for="image">تصویر محصول (JPEG، PNG یا WebP؛ حداکثر ۲ مگابایت)</label>
+    <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp">
+    <img id="imagePreview" src="" alt="پیش‌نمایش" class="image-preview" hidden>
 
     <button type="submit" class="btn" id="submitBtn">ذخیره محصول</button>
 </form>
-
-<script>
-// پیش‌نمایش آنی عکس، قبل از هر آپلودی - فقط تو خود مرورگر
-document.getElementById('image').addEventListener('change', function () {
-    const file = this.files[0];
-    const preview = document.getElementById('imagePreview');
-
-    if (!file) {
-        preview.style.display = 'none';
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function (event) {
-        preview.src = event.target.result;
-        preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-});
-
-// ارسال کل فرم (همراه با فایل) با Ajax به API، به‌جای رفرش کامل صفحه
-document.getElementById('addProductForm').addEventListener('submit', async function (event) {
-    event.preventDefault();
-
-    const form = this;
-    const submitBtn = document.getElementById('submitBtn');
-    const alertsBox = document.getElementById('formAlerts');
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'در حال ذخیره...';
-
-    // FormData خودش فایل‌ها رو هم از تو فرم جمع می‌کنه؛ نیازی نیست دستی اضافه کنیم
-    const result = await Golara.api('POST', '/admin/products', new FormData(form));
-
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'ذخیره محصول';
-
-    alertsBox.textContent = '';
-    const box = document.createElement('div');
-
-    if (!result.ok) {
-        box.className = 'alert alert-error';
-        const messages = Object.values(result.errors);
-        (messages.length ? messages : [result.message]).forEach(function (text) {
-            const line = document.createElement('div');
-            line.textContent = text;
-            box.appendChild(line);
-        });
-        alertsBox.appendChild(box);
-        return;
-    }
-
-    box.className = 'alert alert-success';
-    box.textContent = result.message + ' می‌تونی محصول بعدی رو هم اضافه کنی.';
-    alertsBox.appendChild(box);
-
-    // فرم رو برای افزودن محصول بعدی خالی می‌کنیم (بدون نیاز به رفرش صفحه)
-    form.reset();
-    document.getElementById('imagePreview').style.display = 'none';
-});
-</script>
 
 <?php require_once __DIR__ . '/_footer.php'; ?>

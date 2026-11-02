@@ -15,6 +15,7 @@ if (!$customer) {
     redirect(url('login.php'));
 }
 
+set_seo(['title' => 'حساب کاربری من', 'noindex' => true]);
 require_once __DIR__ . '/includes/header.php';
 
 $review_count = (new Review())->countForCustomer((int) $_SESSION['customer_id']);
@@ -26,7 +27,7 @@ $order_count = (new Order())->countPaidByCustomer((int) $_SESSION['customer_id']
 <div class="box" style="max-width:480px;">
     <p><strong>نام:</strong> <?php echo clean_input($customer['name']); ?></p>
     <p style="margin-top:8px;"><strong>ایمیل:</strong> <?php echo clean_input($customer['email']); ?></p>
-    <p style="margin-top:8px;"><strong>عضو از:</strong> <?php echo $customer['created_at']; ?></p>
+    <p style="margin-top:8px;"><strong>عضو از:</strong> <?php echo format_date($customer['created_at']); ?></p>
     <p style="margin-top:8px;"><strong>تعداد نظرات ثبت‌شده:</strong> <?php echo $review_count; ?></p>
     <p style="margin-top:8px;"><strong>تعداد سفارش پرداخت‌شده:</strong> <?php echo $order_count; ?></p>
     <p style="margin-top:8px;"><strong>کالاهای داخل سبد خرید:</strong> <?php echo (new Cart())->count(); ?></p>
@@ -37,7 +38,12 @@ $order_count = (new Order())->countPaidByCustomer((int) $_SESSION['customer_id']
         <a href="<?php echo url('cart.php'); ?>" class="btn">سبد خرید</a>
         <a href="<?php echo url('orders.php'); ?>" class="btn btn-outline">سفارش‌های من</a>
         <a href="<?php echo url('wishlist.php'); ?>" class="btn btn-outline">علاقه‌مندی‌های من</a>
-        <a href="<?php echo url('logout.php'); ?>" class="btn btn-danger">خروج از حساب</a>
+        <a href="<?php echo url('change_password.php'); ?>" class="btn btn-outline">تغییر رمز عبور</a>
+        <!-- خروج با POST و توکن CSRF؛ اگه با لینک ساده بود، هر سایتی می‌تونست با یه عکس مخفی کاربر رو از حسابش بیرون کنه -->
+        <form method="post" action="<?php echo url('logout.php'); ?>" class="inline-form">
+            <?php echo csrf_field(); ?>
+            <button type="submit" class="btn btn-danger">خروج از حساب</button>
+        </form>
     </div>
 </div>
 

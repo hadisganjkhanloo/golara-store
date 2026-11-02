@@ -1,12 +1,24 @@
 <?php
 // توابع کمکی پروژه
 
+require_once __DIR__ . '/jalali.php';
+require_once __DIR__ . '/images.php';
+
 function clean_input($data)
 {
-    $data = trim($data);
+    $data = trim((string) $data);
     $data = stripslashes($data);
     $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
     return $data;
+}
+
+// ارقام فارسی و عربی (۱۲۳ ٤٥٦) رو به لاتین تبدیل می‌کنه تا اعتبارسنجی شماره موبایل، کدپستی و ... با ورودی فارسی هم کار کنه
+function normalize_digits(string $text): string
+{
+    return strtr($text, [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+    ]);
 }
 
 function is_valid_email($email)
@@ -17,12 +29,28 @@ function is_valid_email($email)
 function is_valid_phone($phone)
 {
     // شماره موبایل ایران، مثلا 09123456789
-    return preg_match('/^09[0-9]{9}$/', $phone);
+    return preg_match('/^09[0-9]{9}$/', normalize_digits((string) $phone));
+}
+
+// سیاست رمز عبور: حداقل ۸ کاراکتر، حداقل یک حرف و یک عدد، و نه یکی از رمزهای خیلی رایج. null = معتبر
+function password_policy_error(string $password): ?string
+{
+    if (mb_strlen($password) < 8) {
+        return 'رمز عبور باید حداقل ۸ کاراکتر باشد.';
+    }
+    if (!preg_match('/\p{L}/u', $password) || !preg_match('/\d/', $password)) {
+        return 'رمز عبور باید هم حرف و هم عدد داشته باشد.';
+    }
+    if (in_array(strtolower($password), ['password1', 'password123', 'qwerty123', 'admin123', 'admin1234', '12345678a', 'a12345678', 'golara123'], true)) {
+        return 'این رمز خیلی رایج است؛ یک رمز دیگر انتخاب کنید.';
+    }
+
+    return null;
 }
 
 function format_price($price)
 {
-    return number_format($price) . ' تومان';
+    return number_format((int) $price) . ' تومان';
 }
 
 function redirect($url)
@@ -34,7 +62,13 @@ function redirect($url)
 function require_admin_login()
 {
     if (empty($_SESSION['admin_id'])) {
-        redirect('login.php');
+        redirect(url('admin/login.php'));
+    }
+
+    // ادمینی که هنوز رمز پیش‌فرض/موقت داره، تا رمزش رو عوض نکنه به هیچ صفحه‌ی دیگه‌ای دسترسی نداره
+    $current = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    if (!empty($_SESSION['admin_must_change_password']) && !in_array($current, ['change_password.php', 'logout.php'], true)) {
+        redirect(url('admin/change_password.php'));
     }
 }
 
@@ -96,7 +130,7 @@ function login_customer(array $customer): void
 // خروج مشتری: سبد و علاقه‌مندی‌ها تو دیتابیس می‌مونن، فقط نسخه‌ی داخل سشن پاک می‌شه
 function logout_customer(): void
 {
-    unset($_SESSION['customer_id'], $_SESSION['customer_name']);
+    unset($_SESSION['customer_id'], $_SESSION['customer_name'], $_SESSION['coupon_code']);
     $_SESSION['cart'] = [];
     $_SESSION['wishlist'] = [];
 
@@ -117,7 +151,71 @@ function icon($name, $class = 'icon')
         return '';
     }
 
-    return preg_replace('/<svg /', '<svg class="' . $class . '" ', $svg, 1);
+    // آیکون‌ها تزئینی‌ان؛ اسم دکمه/لینک از متن یا aria-label خودش میاد، پس screen reader نباید آیکون رو بخونه
+    return preg_replace('/<svg /', '<svg class="' . $class . '" aria-hidden="true" focusable="false" ', $svg, 1);
+}
+
+// ---------- سئو (عنوان، توضیحات، canonical، Open Graph، JSON-LD) ----------
+// هر صفحه قبل از include کردن header.php با set_seo([...]) اطلاعات خودش رو می‌ذاره؛ header.php همه رو چاپ می‌کنه.
+// کلیدها: title, description, image (آدرس کامل)، canonical (آدرس کامل)، noindex (bool), type (website|product), jsonld (آرایه‌ی آرایه‌ها)
+
+function set_seo(array $data): void
+{
+    $GLOBALS['__seo'] = array_merge($GLOBALS['__seo'] ?? [], $data);
+}
+
+function get_seo(): array
+{
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    if (BASE_PATH !== '' && str_starts_with($path, BASE_PATH)) {
+        $path = substr($path, strlen(BASE_PATH));
+    }
+
+    return array_merge([
+        'title' => '',
+        'description' => 'فروشگاه اینترنتی گل‌آرا؛ لوازم آرایشی، مراقبت پوست و عطر اورجینال با ضمانت اصالت کالا و ارسال سریع به سراسر کشور.',
+        'image' => absolute_url('assets/img/og-image.png'),
+        'canonical' => absolute_url(ltrim($path, '/')),
+        'noindex' => false,
+        'type' => 'website',
+        'jsonld' => [],
+    ], $GLOBALS['__seo'] ?? []);
+}
+
+// مسیر ناوبری (breadcrumb): [['خانه', url], ['دسته', url], ['محصول']]؛ آخری لینک نداره
+function render_breadcrumbs(array $items): void
+{
+    $position = 0;
+    $list = [];
+    foreach ($items as $item) {
+        $position++;
+        $entry = ['@type' => 'ListItem', 'position' => $position, 'name' => $item[0]];
+        if (!empty($item[1])) {
+            $entry['item'] = absolute_url(ltrim(substr($item[1], strlen(BASE_PATH)), '/'));
+        }
+        $list[] = $entry;
+    }
+
+    set_seo(['jsonld' => array_merge(get_seo()['jsonld'], [[
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => $list,
+    ]])]);
+    ?>
+    <nav class="breadcrumbs" aria-label="مسیر صفحه">
+        <ol>
+            <?php foreach ($items as $i => $item): ?>
+                <li>
+                    <?php if (!empty($item[1]) && $i < count($items) - 1): ?>
+                        <a href="<?php echo clean_input($item[1]); ?>"><?php echo clean_input($item[0]); ?></a>
+                    <?php else: ?>
+                        <span aria-current="page"><?php echo clean_input($item[0]); ?></span>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+    </nav>
+    <?php
 }
 
 // برچسب وضعیت موجودی: [متن، کلاس CSS]
@@ -135,23 +233,39 @@ function stock_badge(int $stock): array
 
 function render_product_card($product)
 {
-    $image_url = $product['image']
-        ? url('uploads/products/' . $product['image'])
-        : 'https://via.placeholder.com/220x150/fbe4ee/c2477a?text=Golara';
+    $image = product_image($product['image'] ?? null, 480);
+    $name = clean_input($product['name']);
+    $link = url('product.php?id=' . $product['id']);
 
     $is_wishlisted = (new Wishlist())->has((int) $product['id']);
     $stock = (int) ($product['stock'] ?? 0);
     [$stock_text, $stock_class] = stock_badge($stock);
+
+    $rating_count = (int) ($product['rating_count'] ?? 0);
+    $rating_avg = round((float) ($product['rating_avg'] ?? 0), 1);
     ?>
     <div class="product-card<?php echo $stock <= 0 ? ' is-out' : ''; ?>">
-        <button type="button" class="wish-btn<?php echo $is_wishlisted ? ' is-active' : ''; ?>" data-product-id="<?php echo $product['id']; ?>" title="افزودن به علاقه‌مندی‌ها"><?php echo icon('heart'); ?></button>
-        <img src="<?php echo $image_url; ?>" alt="<?php echo clean_input($product['name']); ?>" loading="lazy">
-        <h3><?php echo clean_input($product['name']); ?></h3>
+        <button type="button" class="wish-btn<?php echo $is_wishlisted ? ' is-active' : ''; ?>" data-product-id="<?php echo $product['id']; ?>"
+                aria-label="علاقه‌مندی: <?php echo $name; ?>" aria-pressed="<?php echo $is_wishlisted ? 'true' : 'false'; ?>" title="افزودن به علاقه‌مندی‌ها"><?php echo icon('heart'); ?></button>
+        <a href="<?php echo $link; ?>" class="card-media" tabindex="-1" aria-hidden="true">
+            <img src="<?php echo $image['url']; ?>" width="<?php echo $image['width']; ?>" height="<?php echo $image['height']; ?>" alt="" loading="lazy" decoding="async">
+        </a>
+        <h3><a href="<?php echo $link; ?>"><?php echo $name; ?></a></h3>
+        <?php if ($rating_count > 0): ?>
+            <p class="card-rating"><?php echo render_stars($rating_avg, 'stars stars-sm'); ?> <span><?php echo $rating_avg; ?> (<?php echo $rating_count; ?>)</span></p>
+        <?php endif; ?>
         <p class="price"><?php echo format_price($product['price']); ?></p>
         <?php if ($stock <= Product::LOW_STOCK_THRESHOLD): ?>
             <p class="stock-badge <?php echo $stock_class; ?>"><?php echo $stock_text; ?></p>
         <?php endif; ?>
-        <a href="<?php echo url('product.php?id=' . $product['id']); ?>" class="btn">مشاهده</a>
+        <div class="card-actions">
+            <?php if ($stock > 0): ?>
+                <button type="button" class="btn js-add-to-cart" data-product-id="<?php echo $product['id']; ?>">افزودن به سبد</button>
+            <?php else: ?>
+                <span class="btn btn-disabled" aria-disabled="true">ناموجود</span>
+            <?php endif; ?>
+            <a href="<?php echo $link; ?>" class="btn btn-outline" aria-label="مشاهده <?php echo $name; ?>">مشاهده</a>
+        </div>
     </div>
     <?php
 }
@@ -208,8 +322,25 @@ function render_pagination(int $page, int $pages, string $baseUrl, array $query 
     <?php
 }
 
+// خلاصه مبلغ: جمع کالاها، تخفیف، هزینه ارسال، مبلغ قابل پرداخت (هم تو سبد، هم تو تسویه حساب)
+function render_price_summary(array $summary): void
+{
+    ?>
+    <dl class="price-summary">
+        <div><dt>جمع کالاها</dt><dd><?php echo format_price($summary['subtotal']); ?></dd></div>
+        <?php if ($summary['discount'] > 0): ?>
+            <div class="is-discount"><dt>تخفیف (<?php echo clean_input($summary['coupon']); ?>)</dt><dd>− <?php echo format_price($summary['discount']); ?></dd></div>
+        <?php endif; ?>
+        <div><dt>هزینه ارسال</dt><dd><?php echo $summary['shipping'] > 0 ? format_price($summary['shipping']) : 'رایگان'; ?></dd></div>
+        <div class="is-total"><dt>مبلغ قابل پرداخت</dt><dd class="price"><?php echo format_price($summary['total']); ?></dd></div>
+    </dl>
+    <?php if ($summary['shipping'] > 0 && $summary['free_shipping_remaining'] > 0): ?>
+        <p class="free-shipping-hint">با <?php echo format_price($summary['free_shipping_remaining']); ?> خرید بیشتر، ارسال رایگان می‌شود.</p>
+    <?php endif;
+}
+
 // جدول سبد خرید؛ هم موقع لود صفحه (cart.php) و هم بعد از هر تغییر Ajax (کلید html در جواب API) از همین استفاده می‌شه
-function render_cart_table(array $items, int $total): void
+function render_cart_table(array $items, array $summary): void
 {
     if (empty($items)) {
         ?>
@@ -225,22 +356,23 @@ function render_cart_table(array $items, int $total): void
         }
     }
     ?>
+    <div class="table-scroll">
     <table class="cart-table">
         <thead>
             <tr>
-                <th>محصول</th>
-                <th>قیمت واحد</th>
-                <th>تعداد</th>
-                <th>جمع</th>
-                <th></th>
+                <th scope="col">محصول</th>
+                <th scope="col">قیمت واحد</th>
+                <th scope="col">تعداد</th>
+                <th scope="col">جمع</th>
+                <th scope="col"><span class="sr-only">حذف</span></th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($items as $item): ?>
-                <?php $pid = (int) $item['product']['id']; ?>
+                <?php $pid = (int) $item['product']['id']; $pname = clean_input($item['product']['name']); ?>
                 <tr>
                     <td>
-                        <a href="<?php echo url('product.php?id=' . $pid); ?>"><?php echo clean_input($item['product']['name']); ?></a>
+                        <a href="<?php echo url('product.php?id=' . $pid); ?>"><?php echo $pname; ?></a>
                         <?php if (!$item['in_stock']): ?>
                             <div class="stock-badge stock-out">این کالا ناموجود شده است</div>
                         <?php elseif (!$item['enough']): ?>
@@ -249,28 +381,50 @@ function render_cart_table(array $items, int $total): void
                     </td>
                     <td><?php echo format_price($item['product']['price']); ?></td>
                     <td>
-                        <div class="qty-control" data-product-id="<?php echo $pid; ?>">
-                            <button type="button" class="qty-btn" data-action="dec" aria-label="کم کردن">−</button>
-                            <span class="qty-value"><?php echo $item['qty']; ?></span>
-                            <button type="button" class="qty-btn" data-action="inc" aria-label="زیاد کردن" <?php echo $item['qty'] >= $item['stock'] ? 'disabled' : ''; ?>>+</button>
+                        <div class="qty-control" data-product-id="<?php echo $pid; ?>" role="group" aria-label="تعداد <?php echo $pname; ?>">
+                            <button type="button" class="qty-btn" data-action="dec" aria-label="کم کردن تعداد <?php echo $pname; ?>">−</button>
+                            <span class="qty-value" aria-live="polite"><?php echo $item['qty']; ?></span>
+                            <button type="button" class="qty-btn" data-action="inc" aria-label="زیاد کردن تعداد <?php echo $pname; ?>" <?php echo ($item['qty'] >= $item['stock'] || $item['qty'] >= MAX_QTY_PER_ITEM) ? 'disabled' : ''; ?>>+</button>
                         </div>
                     </td>
                     <td><?php echo format_price($item['line_total']); ?></td>
-                    <td><button type="button" class="link-danger" data-action="remove" data-product-id="<?php echo $pid; ?>">حذف</button></td>
+                    <td><button type="button" class="link-danger" data-action="remove" data-product-id="<?php echo $pid; ?>" aria-label="حذف <?php echo $pname; ?> از سبد">حذف</button></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 
-    <p style="margin-top:16px; font-size:18px;">جمع کل: <strong class="price"><?php echo format_price($total); ?></strong></p>
+    <div class="cart-footer">
+        <div class="coupon-box">
+            <?php if (!empty($summary['coupon'])): ?>
+                <p class="coupon-applied">کد تخفیف <strong><?php echo clean_input($summary['coupon']); ?></strong> اعمال شد.
+                    <button type="button" class="link-danger" data-action="remove-coupon">حذف کد</button></p>
+            <?php else: ?>
+                <form class="coupon-form" data-coupon-form>
+                    <label for="couponCode" class="sr-only">کد تخفیف</label>
+                    <input type="text" id="couponCode" name="code" placeholder="کد تخفیف" autocomplete="off" maxlength="40" dir="ltr">
+                    <button type="submit" class="btn btn-outline">اعمال</button>
+                </form>
+            <?php endif; ?>
+            <?php if (!empty($summary['coupon_error'])): ?>
+                <p class="coupon-error" role="alert"><?php echo clean_input($summary['coupon_error']); ?></p>
+            <?php endif; ?>
+        </div>
 
-    <?php if (!empty($_SESSION['customer_id'])): ?>
-        <form method="post" action="<?php echo url('payment/request.php'); ?>" style="margin-top:16px;">
-            <?php echo csrf_field(); ?>
-            <button type="submit" class="btn" <?php echo $has_problem ? 'disabled' : ''; ?>>تسویه حساب و پرداخت</button>
-        </form>
-    <?php else: ?>
-        <p style="margin-top:16px; font-size:14px;">برای تسویه حساب، ابتدا <a href="<?php echo url('login.php'); ?>" style="color:var(--pink-dark);">وارد حساب کاربری</a> شو. سبد فعلی‌ات بعد از ورود حفظ می‌شه.</p>
+        <div class="summary-box">
+            <?php render_price_summary($summary); ?>
+
+            <?php if ($has_problem): ?>
+                <span class="btn btn-disabled" aria-disabled="true">ابتدا موجودی کالاها را اصلاح کنید</span>
+            <?php else: ?>
+                <a href="<?php echo url('checkout.php'); ?>" class="btn">ادامه و ثبت اطلاعات ارسال</a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <?php if (empty($_SESSION['customer_id'])): ?>
+        <p style="margin-top:16px; font-size:14px;">برای ادامه خرید باید <a href="<?php echo url('login.php'); ?>" style="color:var(--pink-dark);">وارد حساب کاربری</a> شوی. سبد فعلی‌ات بعد از ورود حفظ می‌شه.</p>
     <?php endif;
 }
 
@@ -293,10 +447,10 @@ function render_wishlist_grid(array $products): void
 
 function render_stars($rating, $class = 'stars')
 {
-    $rating = round($rating);
-    $html = '<span class="' . $class . '">';
+    $rounded = round($rating);
+    $html = '<span class="' . $class . '" role="img" aria-label="امتیاز ' . round((float) $rating, 1) . ' از 5">';
     for ($i = 1; $i <= 5; $i++) {
-        $filled = $i <= $rating ? ' is-filled' : '';
+        $filled = $i <= $rounded ? ' is-filled' : '';
         $html .= icon('star', 'icon star-icon' . $filled);
     }
     $html .= '</span>';
@@ -314,7 +468,7 @@ function render_review_item($review)
         <?php if (!empty($review['comment'])): ?>
             <p class="review-comment"><?php echo nl2br(clean_input($review['comment'])); ?></p>
         <?php endif; ?>
-        <span class="review-date"><?php echo $review['created_at']; ?></span>
+        <span class="review-date"><?php echo format_date($review['created_at'], true); ?></span>
     </div>
     <?php
 }
@@ -330,8 +484,8 @@ function render_reviews_section($conn, $product_id)
     $already_reviewed = !empty($_SESSION['customer_id'])
         && $reviewModel->hasReviewed($product_id, (int) $_SESSION['customer_id']);
     ?>
-    <section class="reviews-section">
-        <h2>نظرات و امتیاز مشتریان</h2>
+    <section class="reviews-section" aria-labelledby="reviewsTitle">
+        <h2 id="reviewsTitle">نظرات و امتیاز مشتریان</h2>
 
         <div class="reviews-summary">
             <?php echo render_stars($average); ?>
@@ -352,10 +506,10 @@ function render_reviews_section($conn, $product_id)
             <form id="reviewForm" class="box" data-product-id="<?php echo $product_id; ?>" style="margin-top:16px;">
                 <?php echo csrf_field(); ?>
 
-                <label>امتیاز شما</label>
-                <div class="star-picker" id="starPicker">
+                <span class="field-label" id="ratingLabel">امتیاز شما</span>
+                <div class="star-picker" id="starPicker" role="group" aria-labelledby="ratingLabel">
                     <?php for ($i = 1; $i <= 5; $i++): ?>
-                        <button type="button" class="star-picker-btn" data-value="<?php echo $i; ?>"><?php echo icon('star', 'icon star-icon'); ?></button>
+                        <button type="button" class="star-picker-btn" data-value="<?php echo $i; ?>" aria-label="<?php echo $i; ?> ستاره" aria-pressed="false"><?php echo icon('star', 'icon star-icon'); ?></button>
                     <?php endfor; ?>
                 </div>
                 <input type="hidden" name="rating" id="ratingInput" value="0">
@@ -363,34 +517,11 @@ function render_reviews_section($conn, $product_id)
                 <label for="reviewComment">نظر شما (اختیاری)</label>
                 <textarea id="reviewComment" name="comment" rows="3"></textarea>
 
-                <div id="reviewFormError" class="alert alert-error" style="display:none; margin-top:10px;"></div>
+                <div id="reviewFormError" class="alert alert-error" role="alert" style="display:none; margin-top:10px;"></div>
 
                 <button type="submit" class="btn" style="margin-top:14px;">ثبت نظر</button>
             </form>
         <?php endif; ?>
     </section>
     <?php
-}
-
-function upload_product_image($file)
-{
-    if (empty($file['name'])) {
-        return null;
-    }
-
-    $allowed_ext = ['jpg', 'jpeg', 'png', 'webp'];
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-
-    if (!in_array($ext, $allowed_ext)) {
-        return false;
-    }
-
-    $new_name = uniqid('product_') . '.' . $ext;
-    $destination = __DIR__ . '/../uploads/products/' . $new_name;
-
-    if (move_uploaded_file($file['tmp_name'], $destination)) {
-        return $new_name;
-    }
-
-    return false;
 }

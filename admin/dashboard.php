@@ -20,10 +20,16 @@ $stock_options = [
     'low' => 'کم‌موجود (۵ عدد یا کمتر)',
     'out' => 'ناموجود',
 ];
+$deleted_options = [
+    '' => 'فعال (نمایش‌داده‌شده در فروشگاه)',
+    'only' => 'حذف‌شده',
+    'all' => 'همه',
+];
 
 $q = trim($_GET['q'] ?? '');
 $category_id = (int) ($_GET['category'] ?? 0);
 $stock_state = isset($stock_options[$_GET['stock'] ?? '']) ? ($_GET['stock'] ?? '') : '';
+$deleted = isset($deleted_options[$_GET['deleted_filter'] ?? '']) ? ($_GET['deleted_filter'] ?? '') : '';
 $sort = isset($sort_options[$_GET['sort'] ?? '']) ? $_GET['sort'] : 'newest';
 $page = max(1, (int) ($_GET['page'] ?? 1));
 
@@ -31,6 +37,7 @@ $result = (new Product())->paginate([
     'q' => $q,
     'category_id' => $category_id,
     'stock_state' => $stock_state,
+    'deleted' => $deleted,
     'sort' => $sort,
 ], $page, ADMIN_PER_PAGE);
 
@@ -40,15 +47,19 @@ $active_query = [
     'q' => $q,
     'category' => $category_id,
     'stock' => $stock_state,
+    'deleted_filter' => $deleted,
     'sort' => $sort === 'newest' ? '' : $sort,
 ];
-$has_filter = $q !== '' || $category_id || $stock_state !== '' || $sort !== 'newest';
+$has_filter = $q !== '' || $category_id || $stock_state !== '' || $deleted !== '' || $sort !== 'newest';
+
+$flash = $_SESSION['admin_flash'] ?? null;
+unset($_SESSION['admin_flash']);
 ?>
 
 <h1>مدیریت محصولات</h1>
 
-<?php if (isset($_GET['deleted'])): ?>
-    <div class="alert alert-success">محصول با موفقیت حذف شد.</div>
+<?php if ($flash): ?>
+    <div class="alert alert-<?php echo $flash['type'] === 'success' ? 'success' : 'error'; ?>" role="status"><?php echo clean_input($flash['text']); ?></div>
 <?php endif; ?>
 
 <form method="get" action="dashboard.php" class="admin-toolbar">
@@ -74,6 +85,14 @@ $has_filter = $q !== '' || $category_id || $stock_state !== '' || $sort !== 'new
         </select>
     </div>
     <div class="filter-field">
+        <label for="a_deleted">نمایش</label>
+        <select id="a_deleted" name="deleted_filter">
+            <?php foreach ($deleted_options as $value => $label): ?>
+                <option value="<?php echo $value; ?>" <?php echo $deleted === $value ? 'selected' : ''; ?>><?php echo $label; ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div class="filter-field">
         <label for="a_sort">مرتب‌سازی</label>
         <select id="a_sort" name="sort">
             <?php foreach ($sort_options as $value => $label): ?>
@@ -91,15 +110,16 @@ $has_filter = $q !== '' || $category_id || $stock_state !== '' || $sort !== 'new
 
 <p style="font-size:13px; color:var(--plum-soft);"><?php echo number_format($result['total']); ?> محصول پیدا شد</p>
 
+<div class="table-scroll">
 <table class="admin-table" style="margin-top:10px;">
     <thead>
         <tr>
-            <th>#</th>
-            <th>نام محصول</th>
-            <th>دسته‌بندی</th>
-            <th>قیمت</th>
-            <th>موجودی</th>
-            <th>عملیات</th>
+            <th scope="col">#</th>
+            <th scope="col">نام محصول</th>
+            <th scope="col">دسته‌بندی</th>
+            <th scope="col">قیمت</th>
+            <th scope="col">موجودی</th>
+            <th scope="col">عملیات</th>
         </tr>
     </thead>
     <tbody>
@@ -110,18 +130,30 @@ $has_filter = $q !== '' || $category_id || $stock_state !== '' || $sort !== 'new
             <?php [$stock_text, $stock_class] = stock_badge((int) $product['stock']); ?>
             <tr>
                 <td><?php echo $product['id']; ?></td>
-                <td><?php echo clean_input($product['name']); ?></td>
+                <td>
+                    <?php echo clean_input($product['name']); ?>
+                    <?php if ($product['deleted_at']): ?><span class="badge badge-off">حذف‌شده</span><?php endif; ?>
+                </td>
                 <td><?php echo clean_input($product['category_name'] ?? '-'); ?></td>
                 <td><?php echo format_price($product['price']); ?></td>
                 <td class="num"><span class="stock-pill <?php echo $stock_class; ?>" title="<?php echo $stock_text; ?>"><?php echo (int) $product['stock']; ?></span></td>
                 <td>
                     <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="btn">ویرایش</a>
-                    <a href="confirm_delete.php?id=<?php echo $product['id']; ?>" class="btn btn-danger">حذف</a>
+                    <?php if ($product['deleted_at']): ?>
+                        <form method="post" action="restore_product.php" class="inline-form">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="id" value="<?php echo $product['id']; ?>">
+                            <button type="submit" class="btn btn-outline">بازگردانی</button>
+                        </form>
+                    <?php else: ?>
+                        <a href="confirm_delete.php?id=<?php echo $product['id']; ?>" class="btn btn-danger">حذف</a>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
     </tbody>
 </table>
+</div>
 
 <?php render_pagination($result['page'], $result['pages'], url('admin/dashboard.php'), $active_query); ?>
 

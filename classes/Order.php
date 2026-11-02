@@ -10,6 +10,27 @@ class Order extends Model
     public const STATUS_PAID = 'paid';
     public const STATUS_FAILED = 'failed';
 
+    // وضعیت ارسال (بعد از پرداخت موفق، مدیر عوضش می‌کنه)
+    public const FULFILLMENT_NEW = 'new';
+    public const FULFILLMENT_PROCESSING = 'processing';
+    public const FULFILLMENT_SHIPPED = 'shipped';
+    public const FULFILLMENT_DELIVERED = 'delivered';
+    public const FULFILLMENT_CANCELLED = 'cancelled';
+
+    public const STATUS_LABELS = [
+        self::STATUS_PENDING => 'در انتظار پرداخت',
+        self::STATUS_PAID => 'پرداخت‌شده',
+        self::STATUS_FAILED => 'ناموفق',
+    ];
+
+    public const FULFILLMENT_LABELS = [
+        self::FULFILLMENT_NEW => 'ثبت‌شده',
+        self::FULFILLMENT_PROCESSING => 'در حال آماده‌سازی',
+        self::FULFILLMENT_SHIPPED => 'ارسال‌شده',
+        self::FULFILLMENT_DELIVERED => 'تحویل‌شده',
+        self::FULFILLMENT_CANCELLED => 'لغوشده',
+    ];
+
     // سفارش‌های pending بیشتر از این مدت (دقیقه) پرداخت‌نشده بمونن، موجودی رزروشون آزاد می‌شه
     public const PENDING_TTL_MINUTES = 30;
 
@@ -17,15 +38,13 @@ class Order extends Model
      * سفارش رو از روی آیتم‌های سبد می‌سازه و هم‌زمان موجودی انبار رو «رزرو» (کم) می‌کنه.
      * همه‌چیز داخل یه تراکنشه: اگه موجودی یکی از کالاها کافی نباشه، هیچ‌چیز ثبت نمی‌شه (rollback).
      *
+     * @param array $shipping مشخصات تحویل: name, phone, city, postal_code, address
+     * @param array $pricing  خروجی Pricing::summarize (جمع کالاها، تخفیف، ارسال، قابل پرداخت، کد تخفیف)
      * @return array{ok:bool, order_id:int, error:string}
      */
-    public function createWithReservation(int $customerId, array $cartItems): array
+    public function createWithReservation(int $customerId, array $cartItems, array $shipping, array $pricing): array
     {
         $productModel = new Product();
-        $total = 0;
-        foreach ($cartItems as $item) {
-            $total += $item['product']['price'] * $item['qty'];
-        }
 
         mysqli_begin_transaction($this->conn);
 
@@ -43,10 +62,28 @@ class Order extends Model
 
             $stmt = mysqli_prepare(
                 $this->conn,
-                "INSERT INTO orders (customer_id, total_amount, status) VALUES (?, ?, ?)"
+                "INSERT INTO orders
+                    (customer_id, total_amount, subtotal, shipping_cost, discount_amount, coupon_code,
+                     shipping_name, shipping_phone, shipping_city, shipping_postal_code, shipping_address, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             $status = self::STATUS_PENDING;
-            mysqli_stmt_bind_param($stmt, 'iis', $customerId, $total, $status);
+            mysqli_stmt_bind_param(
+                $stmt,
+                'iiiiisssssss',
+                $customerId,
+                $pricing['total'],
+                $pricing['subtotal'],
+                $pricing['shipping'],
+                $pricing['discount'],
+                $pricing['coupon'],
+                $shipping['name'],
+                $shipping['phone'],
+                $shipping['city'],
+                $shipping['postal_code'],
+                $shipping['address'],
+                $status
+            );
             mysqli_stmt_execute($stmt);
             $orderId = mysqli_insert_id($this->conn);
 
@@ -111,14 +148,8 @@ class Order extends Model
         $stmt = mysqli_prepare($this->conn, "SELECT * FROM order_items WHERE order_id = ?");
         mysqli_stmt_bind_param($stmt, 'i', $orderId);
         mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
 
-        $items = [];
-        while ($row = mysqli_fetch_assoc($result)) {
-            $items[] = $row;
-        }
-
-        return $items;
+        return mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
     }
 
     public function getByCustomer(int $customerId): array
@@ -129,14 +160,33 @@ class Order extends Model
         );
         mysqli_stmt_bind_param($stmt, 'i', $customerId);
         mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
 
-        $orders = [];
-        while ($row = mysqli_fetch_assoc($result)) {
-            $orders[] = $row;
-        }
+        return mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
+    }
 
-        return $orders;
+    // سفارش، فقط اگه مال همین مشتری باشه (مشتری نباید سفارش بقیه رو با عوض‌کردن id تو آدرس ببینه)
+    public function findForCustomer(int $orderId, int $customerId): ?array
+    {
+        $stmt = mysqli_prepare($this->conn, "SELECT * FROM orders WHERE id = ? AND customer_id = ?");
+        mysqli_stmt_bind_param($stmt, 'ii', $orderId, $customerId);
+        mysqli_stmt_execute($stmt);
+
+        return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt)) ?: null;
+    }
+
+    // آخرین مشخصات تحویلِ مشتری؛ برای پرکردن خودکار فرم تسویه حساب
+    public function lastShippingFor(int $customerId): array
+    {
+        $stmt = mysqli_prepare(
+            $this->conn,
+            "SELECT shipping_name AS name, shipping_phone AS phone, shipping_city AS city,
+                    shipping_postal_code AS postal_code, shipping_address AS address
+             FROM orders WHERE customer_id = ? AND shipping_address IS NOT NULL ORDER BY id DESC LIMIT 1"
+        );
+        mysqli_stmt_bind_param($stmt, 'i', $customerId);
+        mysqli_stmt_execute($stmt);
+
+        return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt)) ?: [];
     }
 
     /**
@@ -207,6 +257,11 @@ class Order extends Model
             }
         }
 
+        // کد تخفیف فقط با پرداخت موفق «مصرف» می‌شه
+        if ($ok && !empty($order['coupon_code'])) {
+            (new Coupon())->incrementUsage($order['coupon_code']);
+        }
+
         return $ok;
     }
 
@@ -236,5 +291,117 @@ class Order extends Model
         mysqli_commit($this->conn);
 
         return $changed;
+    }
+
+    // ---------- پنل مدیریت ----------
+
+    /**
+     * لیست سفارش‌ها برای مدیر، با نام مشتری، فیلتر و صفحه‌بندی.
+     * فیلترها: status, fulfillment, q (شماره سفارش یا نام/ایمیل مشتری)
+     */
+    public function paginateForAdmin(array $filters, int $page, int $perPage): array
+    {
+        $where = [];
+        $types = '';
+        $params = [];
+
+        if (isset(self::STATUS_LABELS[$filters['status'] ?? ''])) {
+            $where[] = 'o.status = ?';
+            $types .= 's';
+            $params[] = $filters['status'];
+        }
+        if (isset(self::FULFILLMENT_LABELS[$filters['fulfillment'] ?? ''])) {
+            $where[] = 'o.fulfillment = ?';
+            $types .= 's';
+            $params[] = $filters['fulfillment'];
+        }
+
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $where[] = '(o.id = ? OR c.name LIKE ? OR c.email LIKE ? OR o.shipping_name LIKE ?)';
+            $types .= 'isss';
+            array_push($params, (int) normalize_digits($q), $like, $like, $like);
+        }
+
+        $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $from = "FROM orders o JOIN customers c ON c.id = o.customer_id $whereSql";
+
+        $stmt = mysqli_prepare($this->conn, "SELECT COUNT(*) AS c $from");
+        if ($types !== '') {
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+        }
+        mysqli_stmt_execute($stmt);
+        $total = (int) mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['c'];
+
+        $perPage = max(1, $perPage);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $pages);
+        $offset = ($page - 1) * $perPage;
+
+        $stmt = mysqli_prepare(
+            $this->conn,
+            "SELECT o.*, c.name AS customer_name, c.email AS customer_email $from ORDER BY o.id DESC LIMIT ? OFFSET ?"
+        );
+        mysqli_stmt_bind_param($stmt, $types . 'ii', ...array_merge($params, [$perPage, $offset]));
+        mysqli_stmt_execute($stmt);
+
+        return [
+            'items' => mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC),
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+        ];
+    }
+
+    public function findWithCustomer(int $orderId): ?array
+    {
+        $stmt = mysqli_prepare(
+            $this->conn,
+            "SELECT o.*, c.name AS customer_name, c.email AS customer_email
+             FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
+        );
+        mysqli_stmt_bind_param($stmt, 'i', $orderId);
+        mysqli_stmt_execute($stmt);
+
+        return mysqli_fetch_assoc(mysqli_stmt_get_result($stmt)) ?: null;
+    }
+
+    // وضعیت ارسال و کد رهگیری؛ فقط برای سفارش پرداخت‌شده معنی داره
+    public function updateFulfillment(int $orderId, string $fulfillment, ?string $trackingCode): bool
+    {
+        if (!isset(self::FULFILLMENT_LABELS[$fulfillment])) {
+            return false;
+        }
+
+        $trackingCode = $trackingCode !== null ? preg_replace('/[^A-Za-z0-9\-_]/', '', $trackingCode) : null;
+        $trackingCode = ($trackingCode === '' || $trackingCode === null) ? null : substr($trackingCode, 0, 60);
+
+        $order = $this->find($orderId);
+        if (!$order || $order['status'] !== self::STATUS_PAID) {
+            return false;
+        }
+
+        $stmt = mysqli_prepare($this->conn, "UPDATE orders SET fulfillment = ?, tracking_code = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, 'ssi', $fulfillment, $trackingCode, $orderId);
+        mysqli_stmt_execute($stmt);
+
+        return true;
+    }
+
+    // آمار کلی برای بالای صفحه سفارش‌های مدیر
+    public function stats(): array
+    {
+        $result = mysqli_query($this->conn, "
+            SELECT
+                SUM(status = 'paid') AS paid_orders,
+                COALESCE(SUM(CASE WHEN status = 'paid' THEN total_amount END), 0) AS revenue,
+                SUM(status = 'paid' AND fulfillment IN ('new', 'processing')) AS to_ship,
+                SUM(status = 'pending') AS pending_orders
+            FROM orders
+        ");
+        $row = mysqli_fetch_assoc($result);
+
+        return array_map('intval', array_map(fn($v) => $v ?? 0, $row));
     }
 }

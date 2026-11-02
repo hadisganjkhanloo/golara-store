@@ -1,0 +1,13 @@
+# این پوشه فقط عکس سرو می‌کنه؛ هیچ اسکریپتی اینجا اجرا نمی‌شه
+# (حتی اگه به‌هر دلیلی فایل PHP داخلش بیفته)
+Options -Indexes -ExecCGI
+
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(php|phtml|php[0-9]|phar|pl|py|cgi|sh)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>

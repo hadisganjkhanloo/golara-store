@@ -1,34 +1,36 @@
 </main>
 
-<a href="https://wa.me/989909592514" target="_blank" rel="noopener" class="whatsapp-float" title="گفتگو در واتساپ"><?php echo icon('whatsapp', 'icon icon-whatsapp'); ?></a>
+<?php if (SHOP_WHATSAPP !== ''): ?>
+    <a href="https://wa.me/<?php echo clean_input(preg_replace('/\D/', '', SHOP_WHATSAPP)); ?>" target="_blank" rel="noopener" class="whatsapp-float" aria-label="گفتگو در واتساپ (در تب جدید باز می‌شود)"><?php echo icon('whatsapp', 'icon icon-whatsapp'); ?></a>
+<?php endif; ?>
 
-<button type="button" id="aiChatToggle" class="ai-chat-float" title="دستیار هوشمند گل‌آرا"><?php echo icon('zap'); ?></button>
+<button type="button" id="aiChatToggle" class="ai-chat-float" aria-label="دستیار هوشمند <?php echo clean_input(SHOP_NAME); ?>" aria-expanded="false" aria-controls="aiChatPanel"><?php echo icon('zap'); ?></button>
 
-<div class="ai-chat-panel" id="aiChatPanel">
+<div class="ai-chat-panel" id="aiChatPanel" role="dialog" aria-label="دستیار زیبایی <?php echo clean_input(SHOP_NAME); ?>">
     <div class="ai-chat-header">
-        <span><?php echo icon('zap'); ?> دستیار زیبایی گل‌آرا</span>
+        <span><?php echo icon('zap'); ?> دستیار زیبایی <?php echo clean_input(SHOP_NAME); ?></span>
         <div>
-            <button type="button" id="aiChatReset" title="گفتگوی جدید"><?php echo icon('rotate-ccw'); ?></button>
-            <button type="button" id="aiChatClose" title="بستن"><?php echo icon('x'); ?></button>
+            <button type="button" id="aiChatReset" aria-label="گفتگوی جدید"><?php echo icon('rotate-ccw'); ?></button>
+            <button type="button" id="aiChatClose" aria-label="بستن"><?php echo icon('x'); ?></button>
         </div>
     </div>
-    <div class="ai-chat-messages" id="aiChatMessages">
-        <div class="ai-msg ai-msg-bot">سلام! من دستیار هوشمند گل‌آرا هستم 🌸 درباره آرایش، مراقبت پوست یا محصولات فروشگاه هرچی بخوای بپرس.</div>
+    <div class="ai-chat-messages" id="aiChatMessages" aria-live="polite">
+        <div class="ai-msg ai-msg-bot">سلام! من دستیار هوشمند <?php echo clean_input(SHOP_NAME); ?> هستم 🌸 درباره آرایش، مراقبت پوست یا محصولات فروشگاه هرچی بخوای بپرس.</div>
     </div>
     <form class="ai-chat-input-row" id="aiChatForm">
-        <input type="text" id="aiChatInput" placeholder="سوالت رو بنویس..." autocomplete="off">
-        <button type="submit" title="ارسال"><?php echo icon('send'); ?></button>
+        <input type="text" id="aiChatInput" placeholder="سوالت رو بنویس..." autocomplete="off" aria-label="پیام شما">
+        <button type="submit" aria-label="ارسال"><?php echo icon('send'); ?></button>
     </form>
 </div>
 
 <footer class="site-footer">
     <div class="container footer-grid">
         <div class="footer-col">
-            <h4>گل‌آرا</h4>
+            <h2 class="footer-title"><?php echo clean_input(SHOP_NAME); ?></h2>
             <p class="footer-about">فروشگاه اینترنتی لوازم آرایشی و بهداشتی اورجینال، با ضمانت اصالت کالا و ارسال سریع به سراسر کشور.</p>
         </div>
         <div class="footer-col">
-            <h4>دسته‌بندی‌ها</h4>
+            <h2 class="footer-title">دسته‌بندی‌ها</h2>
             <ul>
                 <?php foreach ($nav_categories as $fc): ?>
                     <li><a href="<?php echo url('products.php?category=' . $fc['id']); ?>"><?php echo clean_input($fc['name']); ?></a></li>
@@ -36,7 +38,7 @@
             </ul>
         </div>
         <div class="footer-col">
-            <h4>دسترسی سریع</h4>
+            <h2 class="footer-title">دسترسی سریع</h2>
             <ul>
                 <li><a href="<?php echo url('index.php'); ?>">صفحه اصلی</a></li>
                 <li><a href="<?php echo url('products.php'); ?>">همه محصولات</a></li>
@@ -47,27 +49,26 @@
             </ul>
         </div>
         <div class="footer-col">
-            <h4>ارتباط با ما</h4>
+            <h2 class="footer-title">ارتباط با ما</h2>
             <ul>
-                <li><?php echo icon('phone'); ?> ۰۹۹۰۹۵۹۲۵۱۴</li>
-                <li><?php echo icon('mail'); ?> info@golara.shop</li>
-                <li><?php echo icon('map-pin'); ?> تهران، ایران</li>
+                <?php if (SHOP_PHONE !== ''): ?><li><?php echo icon('phone'); ?> <?php echo clean_input(SHOP_PHONE); ?></li><?php endif; ?>
+                <?php if (SHOP_EMAIL !== ''): ?><li><?php echo icon('mail'); ?> <?php echo clean_input(SHOP_EMAIL); ?></li><?php endif; ?>
+                <?php if (SHOP_ADDRESS !== ''): ?><li><?php echo icon('map-pin'); ?> <?php echo clean_input(SHOP_ADDRESS); ?></li><?php endif; ?>
+                <li><a href="<?php echo url('contact.php'); ?>"><?php echo icon('message-circle'); ?> ارسال پیام به ما</a></li>
             </ul>
         </div>
     </div>
     <div class="footer-bottom">
         <div class="container">
-            <p>گل‌آرا — پروژه آموزشی فروشگاه لوازم آرایشی &copy; <?php echo date('Y'); ?> · <a href="<?php echo url('admin/login.php'); ?>" style="color:inherit; opacity:.6;">ورود مدیر</a></p>
+            <p><?php echo clean_input(SHOP_NAME); ?> &copy; <?php echo substr(format_date(time()), 0, 4); ?> — همه حقوق محفوظ است · <a href="<?php echo url('admin/login.php'); ?>" class="footer-admin-link">ورود مدیر</a></p>
         </div>
     </div>
 </footer>
 
-
-<script>
-// آدرس پایه API (از BASE_PATH ساخته می‌شه، پس روی هر دامنه/پوشه‌ای درسته)
-window.GOLARA = { apiUrl: '<?php echo url('api/v1'); ?>' };
-</script>
 <script src="<?php echo asset('assets/js/app.js'); ?>"></script>
+<?php foreach (($page_scripts ?? []) as $page_script): ?>
+    <script src="<?php echo asset($page_script); ?>"></script>
+<?php endforeach; ?>
 
 </body>
 </html>

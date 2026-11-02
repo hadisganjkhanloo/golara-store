@@ -33,12 +33,21 @@ class JsonResponse
 
     public static function noContent(): void
     {
+        if (defined('JSON_RESPONSE_THROW')) {
+            throw new JsonResponseSent([], 204);
+        }
+
         http_response_code(204);
         exit;
     }
 
     private static function send(array $payload, int $status): void
     {
+        // تو تست‌های خودکار (tests/run.php) به‌جای exit یه استثنا پرتاب می‌شه تا خروجی قابل بررسی باشه
+        if (defined('JSON_RESPONSE_THROW')) {
+            throw new JsonResponseSent($payload, $status);
+        }
+
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');

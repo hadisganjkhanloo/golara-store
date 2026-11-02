@@ -88,7 +88,13 @@ class Wishlist
                 $_SESSION['wishlist'] = $ids;
             }
         } else {
-            $stmt = mysqli_prepare($this->conn, "SELECT product_id FROM wishlist_items WHERE customer_id = ? ORDER BY id");
+            // محصولِ حذف‌شده (deleted_at) تو لیست و شمارنده نمیاد
+            $stmt = mysqli_prepare(
+                $this->conn,
+                "SELECT w.product_id FROM wishlist_items w
+                 JOIN products p ON p.id = w.product_id AND p.deleted_at IS NULL
+                 WHERE w.customer_id = ? ORDER BY w.id"
+            );
             mysqli_stmt_bind_param($stmt, 'i', $this->customerId);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);

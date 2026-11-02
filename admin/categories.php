@@ -61,6 +61,7 @@ $categories = $categoryModel->allWithProductCount();
     <div class="filter-actions"><button type="submit" class="btn">افزودن</button></div>
 </form>
 
+<div class="table-scroll">
 <table class="admin-table" style="margin-top:14px;">
     <thead>
         <tr>
@@ -94,10 +95,9 @@ $categories = $categoryModel->allWithProductCount();
                     <?php endif; ?>
                 </td>
                 <td>
-                    <form method="post" action="categories.php" class="inline-form"
-                          onsubmit="return confirm('<?php echo (int) $cat['product_count'] > 0
+                    <form method="post" action="categories.php" class="inline-form" data-confirm="<?php echo (int) $cat['product_count'] > 0
                               ? 'این دسته‌بندی ' . (int) $cat['product_count'] . ' محصول دارد که بدون دسته‌بندی می‌مانند. حذف شود؟'
-                              : 'این دسته‌بندی حذف شود؟'; ?>');">
+                              : 'این دسته‌بندی حذف شود؟'; ?>">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?php echo $cat['id']; ?>">
@@ -108,5 +108,6 @@ $categories = $categoryModel->allWithProductCount();
         <?php endforeach; ?>
     </tbody>
 </table>
+</div>
 
 <?php require_once __DIR__ . '/_footer.php'; ?>

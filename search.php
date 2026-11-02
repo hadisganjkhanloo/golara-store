@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
-require_once __DIR__ . '/includes/header.php';
 
 $per_page = Api\SearchController::PER_PAGE;
 $query = isset($_GET['q']) ? trim($_GET['q']) : '';
@@ -16,19 +15,26 @@ if ($query !== '') {
         $result = (new Product())->paginate(['q' => $query], $page, $per_page);
     }
 }
+
+// نتایج جستجو محتوای مستقل نیستن؛ تو موتور جستجو ایندکس نمی‌شن
+set_seo(['title' => 'جستجوی محصولات', 'noindex' => true]);
+$page_scripts = ['assets/js/search.js'];
+require_once __DIR__ . '/includes/header.php';
+
+render_breadcrumbs([['خانه', url('index.php')], ['جستجو']]);
 ?>
 
 <h1>جستجوی محصولات</h1>
 
-<form method="get" action="<?php echo url('search.php'); ?>" class="box" style="margin-bottom:24px;">
+<form method="get" action="<?php echo url('search.php'); ?>" class="box" style="margin-bottom:24px;" role="search">
     <label for="q">نام محصول را وارد کنید</label>
-    <input type="text" id="q" name="q" value="<?php echo clean_input($query); ?>" placeholder="مثلا: رژ لب" autocomplete="off">
+    <input type="search" id="q" name="q" value="<?php echo clean_input($query); ?>" placeholder="مثلا: رژ لب" autocomplete="off" aria-controls="searchResults">
     <button type="submit" class="btn">جستجو</button>
 </form>
 
-<div class="product-grid" id="searchResults">
+<div class="product-grid" id="searchResults" aria-live="polite">
     <?php if ($error): ?>
-        <p><?php echo $error; ?></p>
+        <p><?php echo clean_input($error); ?></p>
     <?php elseif ($query !== ''): ?>
         <?php if (empty($result['items'])): ?>
             <p>نتیجه‌ای برای «<?php echo clean_input($query); ?>» یافت نشد.</p>
@@ -41,45 +47,5 @@ if ($query !== '') {
 <div id="searchPagination">
     <?php render_pagination($result['page'], $result['pages'], url('search.php'), ['q' => $query]); ?>
 </div>
-
-<script>
-const searchInput = document.getElementById('q');
-const resultsBox = document.getElementById('searchResults');
-const paginationBox = document.getElementById('searchPagination');
-let debounceTimer;
-
-searchInput.addEventListener('input', function () {
-    // هر بار که کاربر تایپ می‌کنه، تایمر قبلی رو پاک می‌کنیم
-    clearTimeout(debounceTimer);
-    const query = searchInput.value.trim();
-
-    if (query === '') {
-        resultsBox.innerHTML = '';
-        paginationBox.innerHTML = '';
-        return;
-    }
-
-    // ۴۰۰ میلی‌ثانیه صبر می‌کنیم؛ اگه تا اون موقع کاربر دوباره تایپ کرد، این درخواست لغو می‌شه
-    debounceTimer = setTimeout(async function () {
-        resultsBox.innerHTML = '<p>در حال جستجو...</p>';
-
-        const result = await Golara.api('GET', '/search?q=' + encodeURIComponent(query));
-
-        // اگه تا جواب برسه کاربر چیز دیگه‌ای تایپ کرده، این جواب کهنه رو نادیده می‌گیریم
-        if (searchInput.value.trim() !== query) {
-            return;
-        }
-
-        if (!result.ok) {
-            resultsBox.innerHTML = '<p>' + result.message.replace(/</g, '&lt;') + '</p>';
-            paginationBox.innerHTML = '';
-            return;
-        }
-
-        resultsBox.innerHTML = result.data.html;
-        paginationBox.innerHTML = result.data.pagination;
-    }, 400);
-});
-</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

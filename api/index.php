@@ -36,23 +36,27 @@ $admin = [[Middleware::class, 'csrf'], [Middleware::class, 'admin']];
 
 $router = new Router('/v1');
 
-// ---------- API عمومی (از هر دامنه‌ای قابل فراخوانی؛ تغییرها با X-API-Key) ----------
+// ---------- API عمومی ----------
+// خواندن (GET) از هر دامنه‌ای مجازه (CORS). تغییرها (POST/PUT/DELETE) فقط با X-API-Key و بدون CORS:
+// کلید باید سمت سرور نگه داشته بشه، نه تو جاوااسکریپتِ صفحه‌ی یه سایت دیگه.
 $router->get('/products', [ProductController::class, 'index'], [], true);
 $router->get('/products/{id}', [ProductController::class, 'show'], [], true);
-$router->post('/products', [ProductController::class, 'store'], $apiKey, true);
-$router->put('/products/{id}', [ProductController::class, 'update'], $apiKey, true);
-$router->delete('/products/{id}', [ProductController::class, 'destroy'], $apiKey, true);
+$router->post('/products', [ProductController::class, 'store'], $apiKey);
+$router->put('/products/{id}', [ProductController::class, 'update'], $apiKey);
+$router->delete('/products/{id}', [ProductController::class, 'destroy'], $apiKey);
 
 $router->get('/categories', [CategoryController::class, 'index'], [], true);
 $router->get('/categories/{id}', [CategoryController::class, 'show'], [], true);
-$router->post('/categories', [CategoryController::class, 'store'], $apiKey, true);
-$router->put('/categories/{id}', [CategoryController::class, 'update'], $apiKey, true);
-$router->delete('/categories/{id}', [CategoryController::class, 'destroy'], $apiKey, true);
+$router->post('/categories', [CategoryController::class, 'store'], $apiKey);
+$router->put('/categories/{id}', [CategoryController::class, 'update'], $apiKey);
+$router->delete('/categories/{id}', [CategoryController::class, 'destroy'], $apiKey);
 
 // ---------- درخواست‌های خود سایت (با سشن؛ تغییرها با توکن CSRF) ----------
 $router->get('/state', [StateController::class, 'show'], $session);
 
 $router->get('/cart', [CartController::class, 'show'], $session);
+$router->put('/cart/coupon', [CartController::class, 'applyCoupon'], $csrf);
+$router->delete('/cart/coupon', [CartController::class, 'removeCoupon'], $csrf);
 $router->post('/cart/items', [CartController::class, 'addItem'], $csrf);
 $router->patch('/cart/items/{productId}', [CartController::class, 'updateItem'], $csrf);
 $router->delete('/cart/items/{productId}', [CartController::class, 'removeItem'], $csrf);

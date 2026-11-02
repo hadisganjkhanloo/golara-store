@@ -110,8 +110,9 @@ class Router
 
     private function sendCorsHeaders(): void
     {
+        // فقط خواندن (GET) از دامنه‌های دیگه مجازه؛ تغییرها (با X-API-Key) عمداً CORS ندارن
         header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, X-API-Key');
+        header('Access-Control-Allow-Methods: GET, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type');
     }
 }

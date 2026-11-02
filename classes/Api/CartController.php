@@ -4,6 +4,8 @@ namespace Api;
 
 use Cart;
 use JsonResponse;
+use Middleware;
+use RateLimiter;
 use Request;
 
 /**
@@ -57,6 +59,41 @@ class CartController extends BaseController
         JsonResponse::success($this->cartPayload($cart, true), 'از سبد خرید حذف شد.');
     }
 
+    // PUT /cart/coupon {code}  — اعمال کد تخفیف
+    public function applyCoupon(Request $request, array $params): void
+    {
+        $code = trim((string) $request->input('code', ''));
+
+        // حدس‌زدن کدهای تخفیف: ۱۰ تلاش در ۱۰ دقیقه برای هر IP
+        $ip = RateLimiter::ip();
+        if (RateLimiter::tooMany('coupon', $ip, 10, 600)) {
+            Middleware::tooManyRequests(RateLimiter::retryAfter('coupon', $ip, 600));
+        }
+
+        if ($code === '') {
+            JsonResponse::error('کد تخفیف را وارد کنید.', 422, ['code' => 'کد تخفیف را وارد کنید.']);
+        }
+
+        $cart = new Cart();
+        $result = $cart->applyCoupon($code);
+
+        if (!$result['ok']) {
+            RateLimiter::hit('coupon', $ip);
+            JsonResponse::error($result['error'], 422, ['code' => $result['error']], $this->cartPayload($cart, true));
+        }
+
+        JsonResponse::success($this->cartPayload($cart, true), 'کد تخفیف اعمال شد.');
+    }
+
+    // DELETE /cart/coupon
+    public function removeCoupon(Request $request, array $params): void
+    {
+        $cart = new Cart();
+        $cart->removeCoupon();
+
+        JsonResponse::success($this->cartPayload($cart, true), 'کد تخفیف حذف شد.');
+    }
+
     private function respond(Cart $cart, array $result, string $successMessage, int $successStatus, bool $withHtml = false): void
     {
         $payload = $this->cartPayload($cart, $withHtml) + ['quantity' => $result['quantity'], 'max' => $result['max']];
@@ -72,7 +109,7 @@ class CartController extends BaseController
                 JsonResponse::error('این کالا در حال حاضر ناموجود است.', 409, [], $payload);
                 break;
             default:
-                JsonResponse::error('حداکثر موجودی این کالا ' . $result['max'] . ' عدد است.', 409, [], $payload);
+                JsonResponse::error('حداکثر تعداد مجاز این کالا ' . $result['max'] . ' عدد است.', 409, [], $payload);
         }
     }
 }

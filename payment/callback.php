@@ -21,6 +21,10 @@ $message = '';
 
 if (!$order) {
     $message = 'سفارش مورد نظر پیدا نشد.';
+} elseif (empty($order['authority']) || !hash_equals((string) $order['authority'], (string) $authority)) {
+    // بدون Authority درست، هرکسی با عوض‌کردن order_id تو آدرس می‌تونست سفارش بقیه رو لغو کنه یا رسیدشون رو ببینه
+    $order = null;
+    $message = 'اطلاعات بازگشت از درگاه معتبر نیست.';
 } elseif ($order['status'] === Order::STATUS_PAID) {
     // کاربر شاید صفحه رو رفرش کرده؛ دوباره verify نمی‌کنیم، فقط نتیجه قبلی رو نشون می‌دیم
     $payment_ok = true;
@@ -35,7 +39,8 @@ if (!$order) {
         $orderModel->markAsPaid($order_id, $result['ref_id']);
         $order['ref_id'] = $result['ref_id'];
 
-        (new Cart())->clear();
+        // سبد خود صاحب سفارش پاک می‌شه (حتی اگه کوکی سشن موقع برگشت از درگاه نرسیده باشه)
+        (new Cart((int) $order['customer_id']))->clear();
         $payment_ok = true;
 
         // به ادمین تو تلگرام خبر می‌دیم - اگه این یه لحظه کند بشه یا شکست بخوره،
@@ -48,6 +53,7 @@ if (!$order) {
     }
 }
 
+set_seo(['title' => 'نتیجه پرداخت', 'noindex' => true]);
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -59,7 +65,7 @@ require_once __DIR__ . '/../includes/header.php';
             <p style="margin-top:6px; font-size:14px;">کد پیگیری: <strong><?php echo clean_input($order['ref_id']); ?></strong></p>
         <?php endif; ?>
         <p style="margin-top:6px; font-size:14px;">مبلغ: <strong class="price"><?php echo format_price($order['total_amount']); ?></strong></p>
-        <a href="<?php echo url('orders.php'); ?>" class="btn" style="margin-top:18px;">مشاهده سفارش‌های من</a>
+        <a href="<?php echo url('order.php?id=' . $order_id); ?>" class="btn" style="margin-top:18px;">مشاهده جزئیات و فاکتور</a>
     </div>
 <?php else: ?>
     <div class="box" style="max-width:480px; text-align:center;">

@@ -8,17 +8,20 @@ start_secure_session();
 $notice = $_SESSION['cart_notice'] ?? '';
 unset($_SESSION['cart_notice']);
 
+set_seo(['title' => 'سبد خرید', 'noindex' => true]);
 require_once __DIR__ . '/includes/header.php';
 
 $cart = new Cart();
 $cart_items = $cart->getItemsWithProducts();
-$total = $cart->getTotal();
+$summary = $cart->summary($cart_items);
+
+render_breadcrumbs([['خانه', url('index.php')], ['سبد خرید']]);
 ?>
 
 <h1>سبد خرید</h1>
 
 <?php if ($notice !== ''): ?>
-    <div class="alert alert-error"><?php echo clean_input($notice); ?></div>
+    <div class="alert alert-error" role="alert"><?php echo clean_input($notice); ?></div>
 <?php endif; ?>
 
 <?php if (empty($_SESSION['customer_id']) && !empty($cart_items)): ?>
@@ -27,9 +30,9 @@ $total = $cart->getTotal();
     </p>
 <?php endif; ?>
 
-<!-- افزودن/کم/زیاد/حذف با Ajax انجام می‌شه و همین بخش دوباره ساخته می‌شه (app.js) -->
+<!-- افزودن/کم/زیاد/حذف و کد تخفیف با Ajax انجام می‌شه و همین بخش دوباره ساخته می‌شه (app.js) -->
 <div id="cartContent">
-    <?php render_cart_table($cart_items, $total); ?>
+    <?php render_cart_table($cart_items, $summary); ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

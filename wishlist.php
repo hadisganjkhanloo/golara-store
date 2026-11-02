@@ -4,9 +4,12 @@ require_once __DIR__ . '/includes/functions.php';
 
 start_secure_session();
 
+set_seo(['title' => 'علاقه‌مندی‌های من', 'noindex' => true]);
 require_once __DIR__ . '/includes/header.php';
 
 $wishlist = new Wishlist();
+
+render_breadcrumbs([['خانه', url('index.php')], ['علاقه‌مندی‌ها']]);
 ?>
 
 <h1>علاقه‌مندی‌های من</h1>

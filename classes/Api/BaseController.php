@@ -25,6 +25,7 @@ abstract class BaseController
             'in_stock' => $stock > 0,
             'category_id' => $p['category_id'] !== null ? (int) $p['category_id'] : null,
             'category_name' => $p['category_name'] ?? null,
+            'rating' => isset($p['rating_count']) ? ['average' => round((float) $p['rating_avg'], 1), 'count' => (int) $p['rating_count']] : null,
             'image_url' => $p['image'] ? absolute_url('uploads/products/' . $p['image']) : null,
             'url' => absolute_url('product.php?id=' . $p['id']),
             'created_at' => $p['created_at'] ?? null,
@@ -35,14 +36,18 @@ abstract class BaseController
     protected function cartPayload(Cart $cart, bool $withHtml = false): array
     {
         $items = $cart->getItemsWithProducts();
-        $total = 0;
-        foreach ($items as $item) {
-            $total += $item['line_total'];
-        }
+        $summary = $cart->summary($items);
 
         $payload = [
             'count' => $cart->count(),
-            'total' => $total,
+            'total' => $summary['total'],
+            'summary' => [
+                'subtotal' => $summary['subtotal'],
+                'discount' => $summary['discount'],
+                'coupon' => $summary['coupon'],
+                'shipping' => $summary['shipping'],
+                'total' => $summary['total'],
+            ],
             'items' => array_map(fn($i) => [
                 'product_id' => (int) $i['product']['id'],
                 'name' => $i['product']['name'],
@@ -56,7 +61,7 @@ abstract class BaseController
 
         if ($withHtml) {
             ob_start();
-            render_cart_table($items, $total);
+            render_cart_table($items, $summary);
             $payload['html'] = ob_get_clean();
         }
 

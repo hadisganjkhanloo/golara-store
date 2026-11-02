@@ -1,8 +1,10 @@
-# وقتی ریشه پروژه خودش Document Root دامنه است (مثلا golara-store.test)،
-# فایل‌های حساس نباید از بیرون قابل دانلود باشن.
+# تنظیمات Apache پروژه (نیاز به AllowOverride All). هر بخش داخل IfModule هست،
+# پس اگه ماژولی روی سرور نبود، فقط همون بخش بی‌اثر می‌شه و سایت خراب نمی‌شه.
 
 Options -Indexes
+ServerSignature Off
 
+# ---------- جلوگیری از دانلود فایل‌های حساس (وقتی ریشه پروژه خودش Document Root دامنه‌ست) ----------
 <IfModule mod_authz_core.c>
     <FilesMatch "^(\.env.*|\.gitignore|composer\.(json|lock|phar)|README\.md)$">
         Require all denied
@@ -10,5 +12,31 @@ Options -Indexes
 </IfModule>
 
 <IfModule mod_alias.c>
-    RedirectMatch 403 "^/(.*/)?(vendor|database|classes|config|\.git)(/|$)"
+    RedirectMatch 403 "^/(.*/)?(vendor|database|classes|config|includes|storage|bin|tests|\.git)(/|$)"
+</IfModule>
+
+# ---------- robots.txt و sitemap.xml پویا ----------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^robots\.txt$ robots.php [L]
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
+</IfModule>
+
+# ---------- هدرها و کش ----------
+<IfModule mod_headers.c>
+    Header unset X-Powered-By
+
+    # CSS/JS/فونت: آدرسشون با ?v=زمان‌تغییر ساخته می‌شه (تابع asset)، پس تا یک سال کش بشن مشکلی نیست
+    <FilesMatch "\.(css|js|woff2)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    # عکس‌ها: ۳۰ روز (اسم عکس محصول با هر آپلود جدید عوض می‌شه)
+    <FilesMatch "\.(png|jpe?g|webp|svg|ico)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
+# ---------- فشرده‌سازی (روی XAMPP پیش‌فرض ممکنه mod_deflate خاموش باشه) ----------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/xml application/javascript application/json image/svg+xml
 </IfModule>

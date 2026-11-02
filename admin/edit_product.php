@@ -8,7 +8,8 @@ require_admin_login();
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 $productModel = new Product();
-$product = $productModel->find($id);
+// مدیر محصولِ حذف‌شده رو هم می‌تونه ویرایش کنه (برای بازگردانی)
+$product = $productModel->find($id, true);
 
 if (!$product) {
     require_once __DIR__ . '/_header.php';
@@ -30,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // مقدارها خام ذخیره می‌شن؛ موقع نمایش با clean_input امن می‌شن
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $price = trim($_POST['price'] ?? '');
-    $stock = trim($_POST['stock'] ?? '');
+    $price = normalize_digits(trim($_POST['price'] ?? ''));
+    $stock = normalize_digits(trim($_POST['stock'] ?? ''));
     $category_id = (int) ($_POST['category_id'] ?? 0);
 
     if ($name === '') {
@@ -45,12 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $image_name = $product['image'];
+    $replaced_image = null;
     if (!empty($_FILES['image']['name'])) {
-        $uploaded = upload_product_image($_FILES['image']);
-        if ($uploaded === false) {
-            $errors[] = 'فرمت تصویر مجاز نیست (فقط jpg، jpeg، png، webp).';
+        $upload = store_product_image($_FILES['image']);
+        if (!$upload['ok']) {
+            $errors[] = $upload['error'];
         } else {
-            $image_name = $uploaded;
+            $replaced_image = $product['image'];
+            $image_name = $upload['name'];
         }
     }
 
@@ -64,6 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'image' => $image_name,
         ]);
 
+        // عکس قبلی دیگه استفاده نمی‌شه؛ فایلش (و thumbnailهاش) پاک می‌شه
+        delete_product_image($replaced_image);
+
         redirect('dashboard.php');
     }
 }
@@ -73,12 +79,12 @@ require_once __DIR__ . '/_header.php';
 $categories = (new Category())->all('id ASC');
 ?>
 
-<h1>ویرایش محصول</h1>
+<h1>ویرایش محصول <?php if ($product['deleted_at']): ?><span class="badge badge-off">حذف‌شده</span><?php endif; ?></h1>
 
 <?php if (!empty($errors)): ?>
-    <div class="alert alert-error">
+    <div class="alert alert-error" role="alert">
         <?php foreach ($errors as $error): ?>
-            <div><?php echo $error; ?></div>
+            <div><?php echo clean_input($error); ?></div>
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
@@ -109,11 +115,11 @@ $categories = (new Category())->all('id ASC');
     <textarea id="description" name="description" rows="4"><?php echo clean_input($description); ?></textarea>
 
     <?php if ($product['image']): ?>
-        <img src="<?php echo url('uploads/products/' . $product['image']); ?>" style="width:120px; margin-top:10px; border-radius:6px;" alt="">
+        <img src="<?php echo product_image($product['image'], 240)['url']; ?>" class="image-preview" alt="عکس فعلی محصول" width="240" height="160">
     <?php endif; ?>
 
-    <label for="image">تصویر جدید (اختیاری)</label>
-    <input type="file" id="image" name="image" accept="image/*">
+    <label for="image">تصویر جدید (اختیاری؛ JPEG، PNG یا WebP، حداکثر ۲ مگابایت)</label>
+    <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp">
 
     <button type="submit" class="btn">ذخیره تغییرات</button>
 </form>

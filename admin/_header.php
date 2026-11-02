@@ -3,6 +3,14 @@ start_secure_session();
 require_admin_login();
 
 $admin_page = basename($_SERVER['SCRIPT_NAME']);
+$nav = [
+    'orders.php' => ['سفارش‌ها', ['orders.php', 'order.php']],
+    'dashboard.php' => ['محصولات', ['dashboard.php', 'edit_product.php', 'confirm_delete.php']],
+    'add_product.php' => ['افزودن محصول', ['add_product.php']],
+    'categories.php' => ['دسته‌بندی‌ها', ['categories.php']],
+    'coupons.php' => ['کدهای تخفیف', ['coupons.php']],
+    'api_keys.php' => ['کلیدهای API', ['api_keys.php']],
+];
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -10,23 +18,30 @@ $admin_page = basename($_SERVER['SCRIPT_NAME']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo generate_csrf_token(); ?>">
+    <meta name="api-url" content="<?php echo url('api/v1'); ?>">
+    <meta name="robots" content="noindex, nofollow">
     <title>پنل مدیریت فروشگاه</title>
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="<?php echo url('assets/img/favicon.svg'); ?>">
     <link rel="stylesheet" href="<?php echo asset('assets/css/style.css'); ?>">
 </head>
 <body>
-<div class="admin-nav">
+<a class="skip-link" href="#main-content">پرش به محتوای اصلی</a>
+<nav class="admin-nav" aria-label="منوی مدیریت">
     <div class="container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <div>
-            <a href="dashboard.php" class="<?php echo in_array($admin_page, ['dashboard.php', 'edit_product.php', 'confirm_delete.php'], true) ? 'is-current' : ''; ?>">محصولات</a>
-            <a href="add_product.php" class="<?php echo $admin_page === 'add_product.php' ? 'is-current' : ''; ?>">افزودن محصول</a>
-            <a href="categories.php" class="<?php echo $admin_page === 'categories.php' ? 'is-current' : ''; ?>">دسته‌بندی‌ها</a>
-            <a href="<?php echo url('index.php'); ?>" target="_blank">مشاهده سایت</a>
+            <?php foreach ($nav as $file => [$label, $pages]): ?>
+                <a href="<?php echo $file; ?>" class="<?php echo in_array($admin_page, $pages, true) ? 'is-current' : ''; ?>"><?php echo $label; ?></a>
+            <?php endforeach; ?>
+            <a href="<?php echo url('index.php'); ?>" target="_blank" rel="noopener">مشاهده سایت</a>
         </div>
-        <div>
-            <span style="color:#d9c4d3;">خوش آمدید، <?php echo clean_input($_SESSION['admin_username']); ?></span>
-            <a href="logout.php" style="margin-right:12px;">خروج</a>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span style="color:#e6d3df;">خوش آمدید، <?php echo clean_input($_SESSION['admin_username']); ?></span>
+            <a href="change_password.php" style="margin:0;">تغییر رمز</a>
+            <form method="post" action="logout.php" class="inline-form">
+                <?php echo csrf_field(); ?>
+                <button type="submit" class="admin-logout">خروج</button>
+            </form>
         </div>
     </div>
-</div>
-<main class="container" style="padding-top:24px;">
+</nav>
+<main class="container" id="main-content" tabindex="-1" style="padding-top:24px;">

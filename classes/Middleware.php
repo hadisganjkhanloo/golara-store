@@ -15,14 +15,31 @@ class Middleware
             JsonResponse::error('کلید API ارسال نشده. هدر X-API-Key را اضافه کنید.', 401);
         }
 
-        $stmt = mysqli_prepare(Database::getConnection(), "SELECT id FROM api_keys WHERE api_key = ?");
-        mysqli_stmt_bind_param($stmt, 's', $key);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_store_result($stmt);
+        // حدس‌زدن کلید: بیشتر از ۲۰ کلید اشتباه تو ۱۰ دقیقه از یک IP = مسدود
+        $ip = RateLimiter::ip();
+        if (RateLimiter::tooMany('apikey:fail', $ip, 20, 600)) {
+            self::tooManyRequests(RateLimiter::retryAfter('apikey:fail', $ip, 600));
+        }
 
-        if (mysqli_stmt_num_rows($stmt) === 0) {
+        $row = (new ApiKey())->verify($key);
+
+        if (!$row) {
+            RateLimiter::hit('apikey:fail', $ip);
             JsonResponse::error('کلید API نامعتبر است.', 401);
         }
+
+        // هر کلید در دقیقه حداکثر ۱۲۰ درخواست تغییردهنده
+        $identifier = 'key' . $row['id'];
+        if (RateLimiter::tooMany('api:key', $identifier, 120, 60)) {
+            self::tooManyRequests(RateLimiter::retryAfter('api:key', $identifier, 60));
+        }
+        RateLimiter::hit('api:key', $identifier);
+    }
+
+    public static function tooManyRequests(int $retryAfterSeconds): void
+    {
+        header('Retry-After: ' . $retryAfterSeconds);
+        JsonResponse::error('تعداد درخواست‌ها بیش از حد مجاز است. ' . RateLimiter::humanWait($retryAfterSeconds) . ' دیگر دوباره تلاش کنید.', 429);
     }
 
     // درخواست‌هایی که از خود صفحه‌های سایت (با سشن) میان باید توکن CSRF درست داشته باشن

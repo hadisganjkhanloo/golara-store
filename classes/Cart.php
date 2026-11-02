@@ -6,7 +6,7 @@
  *  - کاربر واردشده: جدول cart_items تو دیتابیس، پس با خروج/ورود دوباره، یا از یه دستگاه دیگه هم سر جاشه
  *
  * موقع ورود، سبد مهمان با سبد ذخیره‌شده تو حساب ادغام می‌شه (mergeGuestCart).
- * موجودی انبار هم همیشه چک می‌شه: نمی‌شه بیشتر از موجودی تو سبد گذاشت.
+ * موجودی انبار هم همیشه چک می‌شه: نمی‌شه بیشتر از موجودی (و بیشتر از MAX_QTY_PER_ITEM) تو سبد گذاشت.
  */
 class Cart
 {
@@ -32,7 +32,7 @@ class Cart
 
     /**
      * @return array{status:string, quantity:int, max:int}
-     *   quantity = تعداد این محصول تو سبد بعد از عملیات، max = موجودی انبار
+     *   quantity = تعداد این محصول تو سبد بعد از عملیات، max = بیشترین تعداد مجاز (موجودی یا سقف هر کالا)
      */
     public function add(int $productId, int $qty = 1): array
     {
@@ -49,15 +49,16 @@ class Cart
             return ['status' => self::OUT_OF_STOCK, 'quantity' => $current, 'max' => 0];
         }
 
+        $allowed = min($stock, MAX_QTY_PER_ITEM);
         $wanted = $current + max(1, $qty);
 
-        if ($wanted > $stock) {
-            return ['status' => self::LIMIT_REACHED, 'quantity' => $current, 'max' => $stock];
+        if ($wanted > $allowed) {
+            return ['status' => self::LIMIT_REACHED, 'quantity' => $current, 'max' => $allowed];
         }
 
         $this->store($productId, $wanted);
 
-        return ['status' => self::OK, 'quantity' => $wanted, 'max' => $stock];
+        return ['status' => self::OK, 'quantity' => $wanted, 'max' => $allowed];
     }
 
     // تعداد دقیق رو مشخص می‌کنه (برای دکمه‌های + و − تو صفحه سبد)؛ صفر یعنی حذف
@@ -82,13 +83,15 @@ class Cart
             return ['status' => self::OUT_OF_STOCK, 'quantity' => $current, 'max' => 0];
         }
 
-        if ($qty > $stock) {
-            return ['status' => self::LIMIT_REACHED, 'quantity' => $current, 'max' => $stock];
+        $allowed = min($stock, MAX_QTY_PER_ITEM);
+
+        if ($qty > $allowed) {
+            return ['status' => self::LIMIT_REACHED, 'quantity' => $current, 'max' => $allowed];
         }
 
         $this->store($productId, $qty);
 
-        return ['status' => self::OK, 'quantity' => $qty, 'max' => $stock];
+        return ['status' => self::OK, 'quantity' => $qty, 'max' => $allowed];
     }
 
     public function remove(int $productId): void
@@ -99,6 +102,7 @@ class Cart
     public function clear(): void
     {
         $_SESSION['cart'] = [];
+        unset($_SESSION['coupon_code']);
 
         if ($this->customerId !== null) {
             $stmt = mysqli_prepare($this->conn, "DELETE FROM cart_items WHERE customer_id = ?");
@@ -113,7 +117,13 @@ class Cart
     public function count(): int
     {
         if ($this->customerId !== null) {
-            $stmt = mysqli_prepare($this->conn, "SELECT COALESCE(SUM(quantity), 0) AS c FROM cart_items WHERE customer_id = ?");
+            // محصولِ حذف‌شده (deleted_at) تو شمارنده نمیاد
+            $stmt = mysqli_prepare(
+                $this->conn,
+                "SELECT COALESCE(SUM(ci.quantity), 0) AS c
+                 FROM cart_items ci JOIN products p ON p.id = ci.product_id AND p.deleted_at IS NULL
+                 WHERE ci.customer_id = ?"
+            );
             mysqli_stmt_bind_param($stmt, 'i', $this->customerId);
             mysqli_stmt_execute($stmt);
             return (int) mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['c'];
@@ -179,6 +189,59 @@ class Cart
         return $total;
     }
 
+    // ---------- کد تخفیف ----------
+
+    /**
+     * کد تخفیف ذخیره‌شده تو سشن رو با جمع فعلی سبد دوباره اعتبارسنجی می‌کنه.
+     * @return array{coupon:?array, error:string}
+     */
+    public function coupon(int $subtotal): array
+    {
+        $code = $_SESSION['coupon_code'] ?? '';
+
+        if ($code === '' || $subtotal <= 0) {
+            return ['coupon' => null, 'error' => ''];
+        }
+
+        $check = (new Coupon())->validate($code, $subtotal);
+
+        if (!$check['ok']) {
+            // کد دیگه معتبر نیست (مثلاً با حذف یه کالا از حداقل خرید پایین‌تر رفتیم)
+            unset($_SESSION['coupon_code']);
+            return ['coupon' => null, 'error' => $check['error']];
+        }
+
+        return ['coupon' => $check['coupon'], 'error' => ''];
+    }
+
+    /** @return array{ok:bool, error:string} */
+    public function applyCoupon(string $code): array
+    {
+        $check = (new Coupon())->validate($code, $this->getTotal());
+
+        if ($check['ok']) {
+            $_SESSION['coupon_code'] = $check['coupon']['code'];
+        }
+
+        return ['ok' => $check['ok'], 'error' => $check['error']];
+    }
+
+    public function removeCoupon(): void
+    {
+        unset($_SESSION['coupon_code']);
+    }
+
+    // مبلغ‌ها (جمع کالاها، تخفیف، ارسال، قابل پرداخت) + خطای کد تخفیف اگه کد دیگه معتبر نبود
+    public function summary(?array $items = null): array
+    {
+        $items ??= $this->getItemsWithProducts();
+        $subtotal = array_sum(array_column($items, 'line_total'));
+
+        $couponInfo = $this->coupon($subtotal);
+
+        return Pricing::summarize($subtotal, $couponInfo['coupon']) + ['coupon_error' => $couponInfo['error']];
+    }
+
     /**
      * تعداد داخل سبد رو با موجودی فعلی هماهنگ می‌کنه (بالای موجودی → کم می‌شه، ناموجود → حذف)
      * و لیست تغییرها رو برمی‌گردونه تا به کاربر نشون بدیم.
@@ -223,8 +286,8 @@ class Cart
             }
 
             $merged = ($cart->stored()[(int) $productId] ?? 0) + (int) $qty;
-            // از موجودی انبار بیشتر نمی‌ذاریم
-            $cart->store((int) $productId, min($merged, (int) $row['stock']));
+            // از موجودی انبار و سقف هر کالا بیشتر نمی‌ذاریم
+            $cart->store((int) $productId, min($merged, (int) $row['stock'], MAX_QTY_PER_ITEM));
         }
     }
 
@@ -250,7 +313,7 @@ class Cart
         return $items;
     }
 
-    // محصولی که بعد از اضافه شدن به سبد مهمان از دیتابیس حذف شده، همین‌جا از سشن هم پاک می‌شه
+    // محصولی که بعد از اضافه شدن به سبد مهمان حذف شده، همین‌جا از سشن هم پاک می‌شه
     private function validGuestItems(): array
     {
         $items = $_SESSION['cart'];
